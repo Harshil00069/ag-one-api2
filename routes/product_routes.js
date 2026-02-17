@@ -4,6 +4,6 @@ const {SearchScriptApiCall,GetSegmentData} = require("../controller/product_cont
 
 
 router.route("/Search_Script").get(SearchScriptApiCall);
-router.route("/GetSegmentData").get(GetSegmentData);
+router.route("/GetSegmentData/:type").get(GetSegmentData);
 
-module.exports = router;
+module.exports = router; 
