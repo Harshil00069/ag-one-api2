@@ -1,5 +1,7 @@
 const axios = require('axios');
+const console = require('console');
 const https = require('https');
+const { authenticator } = require('otplib');
 let scripMasterList = [];
 
 
@@ -103,4 +105,103 @@ async function GetSegmentData(req, res) {
     }
 }
 
-module.exports = {SearchScriptApiCall,GetSegmentData}; 
+const users = [
+//   { clientcode: "AAAA170695", password: "2725", totpSecret: "Q42JJUFZZTQQRRQ56ELJQABM4I", publicIP: "104.239.107.47", apiKey: "fiClTTla" },
+  { clientcode: "H54980091", password: "2724", totpSecret: "44YEC4CXXCKAVX3AK3MBK3WMAQ", publicIP: "142.111.67.147", apiKey: "9aYX9ZH2" },
+  // ... rest of the 5 users
+];
+
+const loginUser = async (req, res) => {
+  let results = [];
+
+  for (const user of users) {
+    try {
+      const generatedTotp = authenticator.generate(user.totpSecret);
+      console.log(generatedTotp);
+
+      const config = {
+        method: 'post',
+        url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-UserType': 'USER',
+         ' X-SourceID': 'WEB',
+          'X-ClientLocalIP': "192.168.168.168",
+          'X-ClientPublicIP': user.publicIP,
+          'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+          'X-PrivateKey': user.apiKey,
+        },
+        data: JSON.stringify({
+          "clientcode": user.clientcode,
+          "password": user.password,
+          "totp": generatedTotp,
+          "state": "statevariable"
+        })
+      };
+
+      const response = await axios(config);
+      
+      results.push({
+        client: user.clientcode,
+        status: "Success",
+        jwt: response.data.data.jwtToken
+      });
+
+      // Wait 1 second to prevent rate blocking
+      await new Promise(r => setTimeout(r, 1000));
+
+    } catch (error) {
+      results.push({
+        client: user.clientcode,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
+    }
+  }
+
+  // Send the final report of all 5 logins
+  res.status(200).json({
+    message: "Batch login completed",
+    data: results
+  });
+};
+
+
+// async function loginUser(user) {
+//   // GENERATE THE TOTP CODE DYNAMICALLY
+//   const generatedTotp = authenticator.generate(user.totpSecret);
+
+//   const data = JSON.stringify({
+//     "clientcode": user.clientcode,
+//     "password": user.password,
+//     "totp": generatedTotp, // Dynamically generated
+//     "state": "STATE_VAR"
+//   });
+
+//   const config = {
+//     method: 'post',
+//     url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       'Accept': 'application/json',
+//       'X-UserType': 'USER',
+//       'X-SourceID': 'WEB',
+//       'X-ClientLocalIP': '192.168.1.1',
+//       'X-ClientPublicIP': user.publicIP, // Dynamic IP
+//       'X-MACAddress': 'MAC_ADDRESS',
+//       'X-PrivateKey': user.apiKey      // Dynamic API Key
+//     },
+//     data: data
+//   };
+
+//   try {
+//     const response = await axios(config);
+//     console.log(`✅ Success for ${user.clientcode}: JWT Token received.`);
+//     return response.data.data.jwtToken; 
+//   } catch (error) {
+//     console.error(`❌ Error for ${user.clientcode}:`, error.response?.data || error.message);
+//   }
+// }
+
+module.exports = {SearchScriptApiCall,GetSegmentData,loginUser}; 
