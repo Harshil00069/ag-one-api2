@@ -1,7 +1,11 @@
 const axios = require('axios');
 const console = require('console');
 const https = require('https');
-const { authenticator } = require('otplib');
+// const { authenticator } = require('otplib');
+const otplib = require('otplib');
+// const authenticator = otplib.authenticator || otplib.default?.authenticator;
+// const auth = otplib.authenticator;
+const { generate } = require('otplib');
 let scripMasterList = [];
 
 
@@ -111,13 +115,17 @@ const users = [
   // ... rest of the 5 users
 ];
 
+
 const loginUser = async (req, res) => {
+
+
   let results = [];
 
   for (const user of users) {
     try {
-      const generatedTotp = authenticator.generate(user.totpSecret);
-      console.log(generatedTotp);
+      // Generate the 6-digit TOTP
+    const generatedTotp = await generate({ secret: user.totpSecret });
+  console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
 
       const config = {
         method: 'post',
@@ -126,18 +134,18 @@ const loginUser = async (req, res) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'X-UserType': 'USER',
-         ' X-SourceID': 'WEB',
-          'X-ClientLocalIP': "192.168.168.168",
+          'X-SourceID': 'WEB', // Fixed space here
+          'X-ClientLocalIP': '192.168.1.1',
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
           'X-PrivateKey': user.apiKey,
         },
-        data: JSON.stringify({
+        data: {
           "clientcode": user.clientcode,
           "password": user.password,
           "totp": generatedTotp,
           "state": "statevariable"
-        })
+        }
       };
 
       const response = await axios(config);
@@ -148,10 +156,11 @@ const loginUser = async (req, res) => {
         jwt: response.data.data.jwtToken
       });
 
-      // Wait 1 second to prevent rate blocking
+      // 1-second delay to respect rate limits
       await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
+      console.error(`Error for ${user.clientcode}:`, error.response?.data || error.message);
       results.push({
         client: user.clientcode,
         status: "Failed",
@@ -160,12 +169,68 @@ const loginUser = async (req, res) => {
     }
   }
 
-  // Send the final report of all 5 logins
   res.status(200).json({
     message: "Batch login completed",
-    data: results
+    results: results
   });
 };
+
+// const loginUser = async (req, res) => {
+//   let results = [];
+
+//   for (const user of users) {
+//     console.log("Function started. User count:", users.length);
+//     try {
+//       const generatedTotp = authenticator.generate(user.totpSecret);
+//       console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
+
+//       const config = {
+//         method: 'post',
+//         url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
+//         headers: {
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//          ' X-SourceID': 'WEB',
+//           'X-ClientLocalIP': "192.168.168.168",
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey,
+//         },
+//         data: JSON.stringify({
+//           "clientcode": user.clientcode,
+//           "password": user.password,
+//           "totp": generatedTotp,
+//           "state": "statevariable"
+//         })
+//       };
+
+//       const response = await axios(config);
+      
+//       results.push({
+//         client: user.clientcode,
+//         status: "Success",
+//         jwt: response.data.data.jwtToken
+//       });
+
+//       // Wait 1 second to prevent rate blocking
+//       await new Promise(r => setTimeout(r, 1000));
+
+//     } catch (error) {
+//       results.push({
+//         client: user.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   // Send the final report of all 5 logins
+//   res.status(200).json({
+//     message: "Batch login completed",
+//     data: results
+//   });
+// };
 
 
 // async function loginUser(user) {
