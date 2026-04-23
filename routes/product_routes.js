@@ -6,7 +6,7 @@ const {SearchScriptApiCall,GetSegmentData,loginUser} = require("../controller/pr
 router.route("/Search_Script").get(SearchScriptApiCall);
 router.route("/GetSegmentData/:type").get(GetSegmentData);
 
-router.route("/loginUser").get(loginUser);
+router.route("/loginUser").post(loginUser);
 
 
 

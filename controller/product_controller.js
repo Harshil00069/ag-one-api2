@@ -110,22 +110,31 @@ async function GetSegmentData(req, res) {
 }
 
 const users = [
-//   { clientcode: "AAAA170695", password: "2725", totpSecret: "Q42JJUFZZTQQRRQ56ELJQABM4I", publicIP: "104.239.107.47", apiKey: "fiClTTla" },
-  { clientcode: "H54980091", password: "2724", totpSecret: "44YEC4CXXCKAVX3AK3MBK3WMAQ", publicIP: "142.111.67.147", apiKey: "9aYX9ZH2" },
-  // ... rest of the 5 users
+  { clientcode: "AAAA170695", password: "2725", totpSecret: "Q42JJUFZZTQQRRQ56ELJQABM4I", publicIP: "104.239.107.47", apiKey: "fiClTTla" },
+  { clientcode: "H54980091", password: "2724", totpSecret: "44YEC4CXXCKAVX3AK3MBK3WMAQ", publicIP: "142.111.67.146", apiKey: "2fGPJXFU" },
 ];
-
 
 const loginUser = async (req, res) => {
 
+  let userList;
+  
+  // If sent via form-data, it might come as a string
+  if (typeof req.body.userList === 'string') {
+    userList = JSON.parse(req.body.userList);
+  } else {
+    userList = req.body.userList;
+  }
+
+  if (!userList || !Array.isArray(userList)) {
+    return res.status(400).json({ error: "Please provide a userList array" });
+  }
 
   let results = [];
 
-  for (const user of users) {
+  for (const user of userList) {
     try {
-      // Generate the 6-digit TOTP
-    const generatedTotp = await generate({ secret: user.totpSecret });
-  console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
+      // Generate TOTP
+      const generatedTotp = authenticator.generate(user.totpSecret);
 
       const config = {
         method: 'post',
@@ -134,7 +143,7 @@ const loginUser = async (req, res) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'X-UserType': 'USER',
-          'X-SourceID': 'WEB', // Fixed space here
+          'X-SourceID': 'WEB',
           'X-ClientLocalIP': '192.168.1.1',
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
@@ -150,17 +159,24 @@ const loginUser = async (req, res) => {
 
       const response = await axios(config);
       
-      results.push({
-        client: user.clientcode,
-        status: "Success",
-        jwt: response.data.data.jwtToken
-      });
+      // Safety Check: Check if data exists before accessing jwtToken
+      if (response.data && response.data.data) {
+          results.push({
+            client: user.clientcode,
+            status: "Success",
+            jwt: response.data.data.jwtToken
+          });
+      } else {
+          results.push({
+            client: user.clientcode,
+            status: "Failed",
+            message: response.data.message || "Invalid response structure"
+          });
+      }
 
-      // 1-second delay to respect rate limits
       await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
-      console.error(`Error for ${user.clientcode}:`, error.response?.data || error.message);
       results.push({
         client: user.clientcode,
         status: "Failed",
@@ -174,15 +190,16 @@ const loginUser = async (req, res) => {
     results: results
   });
 };
-
 // const loginUser = async (req, res) => {
+
+
 //   let results = [];
 
 //   for (const user of users) {
-//     console.log("Function started. User count:", users.length);
 //     try {
-//       const generatedTotp = authenticator.generate(user.totpSecret);
-//       console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
+//       // Generate the 6-digit TOTP
+//     const generatedTotp = await generate({ secret: user.totpSecret });
+//   console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
 
 //       const config = {
 //         method: 'post',
@@ -191,18 +208,18 @@ const loginUser = async (req, res) => {
 //           'Content-Type': 'application/json',
 //           'Accept': 'application/json',
 //           'X-UserType': 'USER',
-//          ' X-SourceID': 'WEB',
-//           'X-ClientLocalIP': "192.168.168.168",
+//           'X-SourceID': 'WEB', // Fixed space here
+//           'X-ClientLocalIP': '192.168.1.1',
 //           'X-ClientPublicIP': user.publicIP,
 //           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
 //           'X-PrivateKey': user.apiKey,
 //         },
-//         data: JSON.stringify({
+//         data: {
 //           "clientcode": user.clientcode,
 //           "password": user.password,
 //           "totp": generatedTotp,
 //           "state": "statevariable"
-//         })
+//         }
 //       };
 
 //       const response = await axios(config);
@@ -213,10 +230,11 @@ const loginUser = async (req, res) => {
 //         jwt: response.data.data.jwtToken
 //       });
 
-//       // Wait 1 second to prevent rate blocking
+//       // 1-second delay to respect rate limits
 //       await new Promise(r => setTimeout(r, 1000));
 
 //     } catch (error) {
+//       console.error(`Error for ${user.clientcode}:`, error.response?.data || error.message);
 //       results.push({
 //         client: user.clientcode,
 //         status: "Failed",
@@ -225,48 +243,11 @@ const loginUser = async (req, res) => {
 //     }
 //   }
 
-//   // Send the final report of all 5 logins
 //   res.status(200).json({
 //     message: "Batch login completed",
-//     data: results
+//     results: results
 //   });
 // };
 
-
-// async function loginUser(user) {
-//   // GENERATE THE TOTP CODE DYNAMICALLY
-//   const generatedTotp = authenticator.generate(user.totpSecret);
-
-//   const data = JSON.stringify({
-//     "clientcode": user.clientcode,
-//     "password": user.password,
-//     "totp": generatedTotp, // Dynamically generated
-//     "state": "STATE_VAR"
-//   });
-
-//   const config = {
-//     method: 'post',
-//     url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
-//     headers: {
-//       'Content-Type': 'application/json',
-//       'Accept': 'application/json',
-//       'X-UserType': 'USER',
-//       'X-SourceID': 'WEB',
-//       'X-ClientLocalIP': '192.168.1.1',
-//       'X-ClientPublicIP': user.publicIP, // Dynamic IP
-//       'X-MACAddress': 'MAC_ADDRESS',
-//       'X-PrivateKey': user.apiKey      // Dynamic API Key
-//     },
-//     data: data
-//   };
-
-//   try {
-//     const response = await axios(config);
-//     console.log(`✅ Success for ${user.clientcode}: JWT Token received.`);
-//     return response.data.data.jwtToken; 
-//   } catch (error) {
-//     console.error(`❌ Error for ${user.clientcode}:`, error.response?.data || error.message);
-//   }
-// }
 
 module.exports = {SearchScriptApiCall,GetSegmentData,loginUser}; 
