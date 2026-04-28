@@ -1,11 +1,9 @@
 const axios = require('axios');
 const console = require('console');
 const https = require('https');
-// const { authenticator } = require('otplib');
 const otplib = require('otplib');
-// const authenticator = otplib.authenticator || otplib.default?.authenticator;
-// const auth = otplib.authenticator;
 const { generate } = require('otplib');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 let scripMasterList = [];
 
 
@@ -138,9 +136,16 @@ let { userList } = req.body;
       // Generate TOTP
        const generatedTotp = await generate({ secret: user.totpSecret });
 
+       const agent = new https.Agent({
+        localAddress: user.myStaticIP // The REAL IP assigned to your server
+      });
+
+       verifyBinding(user.publicIP);
+
       const config = {
         method: 'post',
         url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
+        httpsAgent: agent,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -339,6 +344,14 @@ const getOrderModify = async (req, res) => {
     return res.status(400).json({ error: "Missing userList or modifyOrderList" });
   }
 
+  // If the data comes as a string (from urlencoded), parse it
+  if (typeof userList === 'string') {
+    userList = JSON.parse(userList);
+  }
+  if (typeof modifyOrderList === 'string') {
+    modifyOrderList = JSON.parse(modifyOrderList);
+  }
+
   let results = [];
 
   // Loop through the modifications you want to make
@@ -351,10 +364,15 @@ const getOrderModify = async (req, res) => {
       continue;
     }
 
+    // const proxyAgent = new HttpsProxyAgent('http://yeawfwfk:ucicqubip6gn@142.111.67.146:5611');
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+  
+
     try {
       const config = {
         method: 'post',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/modifyOrder',
+        httpsAgent: proxyAgent,
         headers: {
           'Authorization': `Bearer ${user.jwtToken}`,
           'Content-Type': 'application/json',
@@ -372,7 +390,10 @@ const getOrderModify = async (req, res) => {
           "producttype": order.producttype,
           "duration": "DAY",
           "price": order.newPrice.toString(),
-          "quantity": order.quantity.toString()
+          "quantity": order.quantity.toString(),
+          "tradingsymbol": order.tradingsymbol,
+          "symboltoken":order.symboltoken,
+          "exchange":order.exchange
         })
       };
 
@@ -402,7 +423,28 @@ const getOrderModify = async (req, res) => {
 };
 
 
+async function verifyBinding(targetIP) {
+  try {
+    const agent = new https.Agent({
+      localAddress: targetIP // Replace with the static IP you want to test
+    });
 
+    const response = await axios.get('https://api.ipify.org?format=json', {
+      httpsAgent: agent
+    });
+
+    console.log(`Success! Your outgoing IP is: ${response.data.ip}`);
+    
+    if (response.data.ip === targetIP) {
+      console.log("✅ THE BINDING IS WORKING. Angel One will see the correct IP.");
+    } else {
+      console.log("❌ MISMATCH: The network is ignoring your localAddress.");
+    }
+  } catch (error) {
+    console.error("❌ ERROR: Could not bind to that IP. Make sure your server hardware owns this IP.");
+    console.error(error.message);
+  }
+}
 
 
 [
