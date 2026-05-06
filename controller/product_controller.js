@@ -132,20 +132,19 @@ let { userList } = req.body;
   let results = [];
 
   for (const user of userList) {
+
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
     try {
       // Generate TOTP
        const generatedTotp = await generate({ secret: user.totpSecret });
 
-       const agent = new https.Agent({
-        localAddress: user.myStaticIP // The REAL IP assigned to your server
-      });
-
-       verifyBinding(user.publicIP);
+       verifyProxy(user);
 
       const config = {
         method: 'post',
         url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
-        httpsAgent: agent,
+        httpsAgent: proxyAgent,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -219,10 +218,12 @@ const getRMSBatch = async (req, res) => {
   let results = [];
 
   for (const user of userList) {
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
     try {
       const config = {
         method: 'get',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/user/v1/getRMS',
+        httpsAgent: proxyAgent,
         headers: {
           // Use the jwtToken passed from the frontend login result
           'Authorization': `Bearer ${user.jwtToken}`, 
@@ -287,10 +288,12 @@ const getOrderBook = async (req, res) => {
   let results = [];
 
   for (const user of userList) {
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
     try {
       const config = {
         method: 'get',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getOrderBook',
+        httpsAgent: proxyAgent,
         headers: {
           // Use the jwtToken passed from the frontend login result
           'Authorization': `Bearer ${user.jwtToken}`, 
@@ -423,26 +426,181 @@ const getOrderModify = async (req, res) => {
 };
 
 
-async function verifyBinding(targetIP) {
-  try {
-    const agent = new https.Agent({
-      localAddress: targetIP // Replace with the static IP you want to test
-    });
+const getOrderPlace = async (req, res) => {
+  let { userList, placeOrderList } = req.body;
 
-    const response = await axios.get('https://api.ipify.org?format=json', {
-      httpsAgent: agent
-    });
+  if (!userList || !placeOrderList) {
+    return res.status(400).json({ error: "Missing userList or placeOrderList" });
+  }
 
-    console.log(`Success! Your outgoing IP is: ${response.data.ip}`);
-    
-    if (response.data.ip === targetIP) {
-      console.log("✅ THE BINDING IS WORKING. Angel One will see the correct IP.");
-    } else {
-      console.log("❌ MISMATCH: The network is ignoring your localAddress.");
+  // Parsing check for urlencoded data
+  if (typeof userList === 'string') userList = JSON.parse(userList);
+  if (typeof placeOrderList === 'string') placeOrderList = JSON.parse(placeOrderList);
+
+  let results = [];
+
+  for (const order of placeOrderList) {
+    const user = userList.find(u => u.clientcode === order.clientcode);
+
+    if (!user) {
+      results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
+      continue;
     }
+
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+    try {
+      const config = {
+        method: 'post',
+        url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/placeOrder',
+        httpsAgent: proxyAgent,
+        headers: {
+          'Authorization': `Bearer ${user.jwtToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-UserType': 'USER',
+          'X-SourceID': 'WEB',
+          'X-ClientLocalIP': '192.168.1.1', // Should ideally be dynamic
+          'X-ClientPublicIP': user.publicIP,
+          'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+          'X-PrivateKey': user.apiKey
+        },
+        data: JSON.stringify({
+          "variety": order.variety || "NORMAL",
+          "tradingsymbol": order.tradingsymbol,
+          "symboltoken": order.symboltoken,
+          "transactiontype": order.transactiontype, // BUY or SELL
+          "exchange": order.exchange,
+          "ordertype": order.ordertype || "LIMIT",
+          "producttype": order.producttype || "DELIVERY",
+          "duration": "DAY",
+          "price": order.price.toString(),
+          "quantity": order.quantity.toString(),
+          "squareoff": "0",
+          "stoploss": "0",
+          "scripconsent":"yes"
+        })
+      };
+
+      const response = await axios(config);
+      
+      results.push({
+        client: order.clientcode,
+        status: "Success",
+        data: response.data
+      });
+
+      // Respecting Rate Limits
+      await new Promise(r => setTimeout(r, 500));
+
+    } catch (error) {
+      results.push({
+        client: order.clientcode,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
+    }
+  }
+
+  res.status(200).json({ results });
+};
+
+
+const getOrderCancel = async (req, res) => {
+  let { userList, cancelOrderList } = req.body;
+
+  if (!userList || !cancelOrderList) {
+    return res.status(400).json({ error: "Missing userList or cancelOrderList" });
+  }
+
+  // Handle string parsing for urlencoded requests
+  if (typeof userList === 'string') userList = JSON.parse(userList);
+  if (typeof cancelOrderList === 'string') cancelOrderList = JSON.parse(cancelOrderList);
+
+  let results = [];
+
+  for (const order of cancelOrderList) {
+    // Match order to the correct user credentials
+    const user = userList.find(u => u.clientcode === order.clientcode);
+
+    if (!user) {
+      results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
+      continue;
+    }
+
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+    try {
+      const config = {
+        method: 'post',
+        url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/cancelOrder',
+        httpsAgent: proxyAgent,
+        headers: {
+          'Authorization': `Bearer ${user.jwtToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-UserType': 'USER',
+          'X-SourceID': 'WEB',
+          'X-ClientLocalIP': '192.168.1.1',
+          'X-ClientPublicIP': user.publicIP,
+          'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+          'X-PrivateKey': user.apiKey
+        },
+        data: JSON.stringify({
+          "variety": order.variety || "NORMAL",
+          "orderid": order.orderid
+        })
+      };
+
+      const response = await axios(config);
+      
+      results.push({
+        client: order.clientcode,
+        orderid: order.orderid,
+        status: "Success",
+        data: response.data
+      });
+
+      // Throttle to respect 2026 Rate Limits
+      await new Promise(r => setTimeout(r, 500));
+
+    } catch (error) {
+      results.push({
+        client: order.clientcode,
+        orderid: order.orderid,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
+    }
+  }
+
+  res.status(200).json({ results });
+};
+
+async function verifyProxy(user) {
+  try {
+    // 1. Setup the Proxy Agent
+    const proxyUrl = `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`;
+    const agent = new HttpsProxyAgent(proxyUrl);
+
+    // 2. Call ipify THROUGH the proxy
+    const response = await axios.get('https://api.ipify.org?format=json', {
+      httpsAgent: agent,
+      timeout: 5000 // 5 second timeout
+    });
+
+    console.log(`Proxy Success! Outgoing IP is: ${response.data.ip}`);
+    
+    // If response.data.ip matches the Proxy IP, you are safe for Angel One
+    return response.data.ip;
+
   } catch (error) {
-    console.error("❌ ERROR: Could not bind to that IP. Make sure your server hardware owns this IP.");
+    console.error("❌ PROXY ERROR: Could not connect through proxy.");
     console.error(error.message);
+    
+    // Common errors: 
+    // 407 = Proxy Authentication Required (Wrong username/password)
+    // ECONNREFUSED = Proxy server is down or Port is wrong
   }
 }
 
@@ -467,64 +625,4 @@ async function verifyBinding(targetIP) {
 ]
 
 
-// const loginUser = async (req, res) => {
-
-
-//   let results = [];
-
-//   for (const user of users) {
-//     try {
-//       // Generate the 6-digit TOTP
-//     const generatedTotp = await generate({ secret: user.totpSecret });
-//   console.log(`Generated TOTP for ${user.clientcode}: ${generatedTotp}`);
-
-//       const config = {
-//         method: 'post',
-//         url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
-//         headers: {
-//           'Content-Type': 'application/json',
-//           'Accept': 'application/json',
-//           'X-UserType': 'USER',
-//           'X-SourceID': 'WEB', // Fixed space here
-//           'X-ClientLocalIP': '192.168.1.1',
-//           'X-ClientPublicIP': user.publicIP,
-//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
-//           'X-PrivateKey': user.apiKey,
-//         },
-//         data: {
-//           "clientcode": user.clientcode,
-//           "password": user.password,
-//           "totp": generatedTotp,
-//           "state": "statevariable"
-//         }
-//       };
-
-//       const response = await axios(config);
-      
-//       results.push({
-//         client: user.clientcode,
-//         status: "Success",
-//         jwt: response.data.data.jwtToken
-//       });
-
-//       // 1-second delay to respect rate limits
-//       await new Promise(r => setTimeout(r, 1000));
-
-//     } catch (error) {
-//       console.error(`Error for ${user.clientcode}:`, error.response?.data || error.message);
-//       results.push({
-//         client: user.clientcode,
-//         status: "Failed",
-//         error: error.response?.data || error.message
-//       });
-//     }
-//   }
-
-//   res.status(200).json({
-//     message: "Batch login completed",
-//     results: results
-//   });
-// };
-
-
-module.exports = {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify}; 
+module.exports = {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify,getOrderPlace,getOrderCancel}; 
