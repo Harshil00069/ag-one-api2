@@ -1,12 +1,16 @@
-const express = require('express');
-const cors = require('cors');
+// const express = require('express');
+// const cors = require('cors');
 
+import express from 'express';
+import cors from 'cors';
+
+import productRoute from './routes/product_routes.js';
 
 
 const app = express();
 const PORT = 3000;
 
-const productRoute = require('./routes/product_routes');
+// const productRoute = require('./routes/product_routes');
 
 // Middleware to parse JSON data
 app.use(express.json());

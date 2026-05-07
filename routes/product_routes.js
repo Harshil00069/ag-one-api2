@@ -1,6 +1,21 @@
-const express = require("express");
+// const express = require("express");
+// const router = express.Router();
+// const {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify,getOrderPlace,getOrderCancel} = require("../controller/product_controller");
+
+import express from "express";
+
+import   {
+  SearchScriptApiCall,
+  GetSegmentData,
+  loginUser,
+  getRMSBatch,
+  getOrderBook,
+  getOrderModify,
+  getOrderPlace,
+  getOrderCancel
+}from "../controller/product_controller.js";;
+
 const router = express.Router();
-const {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify,getOrderPlace,getOrderCancel} = require("../controller/product_controller");
 
 
 router.route("/Search_Script").get(SearchScriptApiCall);
@@ -16,13 +31,4 @@ router.route("/getOrderCancel").post(getOrderCancel);
 
 
 
-
-
-
-
-
-
-
-
-
-module.exports = router; 
+export default router;

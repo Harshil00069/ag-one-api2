@@ -1,9 +1,10 @@
-const axios = require('axios');
-const console = require('console');
-const https = require('https');
-const otplib = require('otplib');
-const { generate } = require('otplib');
-const { HttpsProxyAgent } = require('https-proxy-agent');
+import  axios  from 'axios';
+import  console  from 'console';
+import  https  from 'https';
+// import  otplib  from 'otplib';
+// import  { generate }  from 'otplib';
+import  { HttpsProxyAgent }  from 'https-proxy-agent';
+import { authenticator } from 'otplib';
 let scripMasterList = [];
 
 
@@ -112,7 +113,7 @@ async function GetSegmentData(req, res) {
 //   { clientcode: "H54980091", password: "2724", totpSecret: "44YEC4CXXCKAVX3AK3MBK3WMAQ", publicIP: "142.111.67.146", apiKey: "2fGPJXFU" },
 // ];
 
-const loginUser = async (req, res) => {
+async function loginUser (req, res) {
 
 let { userList } = req.body;
 
@@ -137,7 +138,8 @@ let { userList } = req.body;
 
     try {
       // Generate TOTP
-       const generatedTotp = await generate({ secret: user.totpSecret });
+      //  const generatedTotp = await generate({ secret: user.totpSecret });
+      const generatedTotp = authenticator.generate(user.totpSecret);
 
        verifyProxy(user);
 
@@ -199,7 +201,7 @@ let { userList } = req.body;
 
 
 
-const getRMSBatch = async (req, res) => {
+async function getRMSBatch (req, res) {
   let { userList } = req.body;
 
   // 1. Parsing safety check
@@ -269,7 +271,7 @@ const getRMSBatch = async (req, res) => {
 
 
 
-const getOrderBook = async (req, res) => {
+async function getOrderBook (req, res) {
   let { userList } = req.body;
 
   // 1. Parsing safety check
@@ -339,7 +341,7 @@ const getOrderBook = async (req, res) => {
 
 
 
-const getOrderModify = async (req, res) => {
+async function getOrderModify (req, res) {
   // Destructure both lists from the request body
   let { userList, modifyOrderList } = req.body;
 
@@ -426,7 +428,7 @@ const getOrderModify = async (req, res) => {
 };
 
 
-const getOrderPlace = async (req, res) => {
+async function getOrderPlace (req, res) {
   let { userList, placeOrderList } = req.body;
 
   if (!userList || !placeOrderList) {
@@ -506,7 +508,7 @@ const getOrderPlace = async (req, res) => {
 };
 
 
-const getOrderCancel = async (req, res) => {
+async function getOrderCancel (req, res) {
   let { userList, cancelOrderList } = req.body;
 
   if (!userList || !cancelOrderList) {
@@ -625,4 +627,15 @@ async function verifyProxy(user) {
 ]
 
 
-module.exports = {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify,getOrderPlace,getOrderCancel}; 
+// module.exports = {SearchScriptApiCall,GetSegmentData,loginUser,getRMSBatch,getOrderBook,getOrderModify,getOrderPlace,getOrderCancel}; 
+
+export {
+  SearchScriptApiCall,
+  GetSegmentData,
+  loginUser,
+  getRMSBatch,
+  getOrderBook,
+  getOrderModify,
+  getOrderPlace,
+  getOrderCancel
+};
