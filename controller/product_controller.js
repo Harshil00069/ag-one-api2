@@ -670,13 +670,21 @@ async function getLTP(req, res) {
       };
 
       const response = await axios(config);
-
+const ltpData = response.data?.data;
       results.push({
-        client: item.clientcode,
-        tradingsymbol: item.tradingsymbol,
-        symboltoken: item.symboltoken,
-        status: "Success",
-        data: response.data
+        // client: item.clientcode,
+        // tradingsymbol: item.tradingsymbol,
+        // symboltoken: item.symboltoken,
+        // status: "Success",
+        // data: response.data
+         exchange: ltpData.exchange,
+  tradingsymbol: ltpData.tradingsymbol,
+  symboltoken: ltpData.symboltoken,
+  open: ltpData.open,
+  high: ltpData.high,
+  low: ltpData.low,
+  close: ltpData.close,
+  ltp: ltpData.ltp
       });
 
       // Optional delay
@@ -684,21 +692,13 @@ async function getLTP(req, res) {
 
     } catch (error) {
 
-      // results.push({
-      //   client: item.clientcode,
-      //   tradingsymbol: item.tradingsymbol,
-      //   symboltoken: item.symboltoken,
-      //   status: "Failed",
-      //   error: error.response?.data || error.message
-      // });
-
-  results.push({
-  client: item.clientcode,
-  tradingsymbol: item.tradingsymbol,
-  symboltoken: item.symboltoken,
-  status: "Success",
-  data: response.data
-});
+      results.push({
+        client: item.clientcode,
+        tradingsymbol: item.tradingsymbol,
+        symboltoken: item.symboltoken,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
 
     }
 
