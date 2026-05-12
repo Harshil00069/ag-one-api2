@@ -684,13 +684,21 @@ async function getLTP(req, res) {
 
     } catch (error) {
 
-      results.push({
-        client: item.clientcode,
-        tradingsymbol: item.tradingsymbol,
-        symboltoken: item.symboltoken,
-        status: "Failed",
-        error: error.response?.data || error.message
-      });
+      // results.push({
+      //   client: item.clientcode,
+      //   tradingsymbol: item.tradingsymbol,
+      //   symboltoken: item.symboltoken,
+      //   status: "Failed",
+      //   error: error.response?.data || error.message
+      // });
+
+  results.push({
+  client: item.clientcode,
+  tradingsymbol: item.tradingsymbol,
+  symboltoken: item.symboltoken,
+  status: "Success",
+  data: response.data
+});
 
     }
 
