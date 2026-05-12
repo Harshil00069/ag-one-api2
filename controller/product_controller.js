@@ -621,22 +621,23 @@ async function getLTP(req, res) {
 
   for (const item of ltpList) {
 
-    // Find matching user
-    const user = userList.find(
-      u => u.clientcode === item.clientcode
-    );
+    const user = userList[0];
+    // // Find matching user
+    // const user = userList.find(
+    //   u => u.clientcode === item.clientcode
+    // );
 
-    if (!user) {
+    // if (!user) {
 
-      results.push({
-        client: item.clientcode,
-        tradingsymbol: item.tradingsymbol,
-        status: "Failed",
-        error: "User auth data not found"
-      });
+    //   results.push({
+    //     client: item.clientcode,
+    //     tradingsymbol: item.tradingsymbol,
+    //     status: "Failed",
+    //     error: "User auth data not found"
+    //   });
 
-      continue;
-    }
+    //   continue;
+    // }
 
     try {
 
@@ -672,12 +673,7 @@ async function getLTP(req, res) {
       const response = await axios(config);
 const ltpData = response.data?.data;
       results.push({
-        // client: item.clientcode,
-        // tradingsymbol: item.tradingsymbol,
-        // symboltoken: item.symboltoken,
-        // status: "Success",
-        // data: response.data
-         exchange: ltpData.exchange,
+  exchange: ltpData.exchange,
   tradingsymbol: ltpData.tradingsymbol,
   symboltoken: ltpData.symboltoken,
   open: ltpData.open,
