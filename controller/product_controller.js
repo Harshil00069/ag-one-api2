@@ -23,7 +23,7 @@ async function SearchScriptApiCall(req, res) {
                 success: true,
                 message: "Data already available in memory",
                 storedCount: scripMasterList.length,
-                segments: ["NSE", "BSE"]
+                segments: ["NSE","BSE","NFO"]
             });
         }
 
@@ -35,7 +35,8 @@ async function SearchScriptApiCall(req, res) {
         const filteredScrips = allScrips.filter(
             (scrip) =>
                 scrip.exch_seg === "NSE" ||
-                scrip.exch_seg === "BSE"
+                scrip.exch_seg === "BSE" ||
+                scrip.exch_seg === "NFO" 
         );
 
         // 3. Save in memory list
@@ -47,7 +48,7 @@ async function SearchScriptApiCall(req, res) {
             message: "Market data loaded and stored in memory",
             totalProcessed: allScrips.length,
             storedCount: filteredScrips.length,
-            segments: ["NSE", "BSE"]
+            segments: ["NSE","BSE","NFO"]
         });
 
     } catch (error) {
@@ -77,8 +78,10 @@ async function GetSegmentData(req, res) {
 
         // 2️⃣ Decide segment
         if (type == 1) {
-            segment = "BSE";
+            segment = "NFO";
         } else if (type == 2) {
+            segment = "BSE";
+        }else if (type == 3) {
             segment = "NSE";
         } else {
             return res.status(400).json({
@@ -579,6 +582,130 @@ async function getOrderCancel (req, res) {
   res.status(200).json({ results });
 };
 
+
+
+async function getLTP(req, res) {
+
+    let { userList, ltpList } = req.body;
+
+  if (!userList || !ltpList) {
+    return res.status(400).json({ error: "Missing userList or ltpList" });
+  }
+
+  // console.log("BODY =>", req.body);
+// console.log("ltpList =>", ltpList);
+// console.log("userList =>", userList);
+ // Safe parsing
+  try {
+
+    if (typeof userList === 'string') {
+      userList = JSON.parse(userList);
+    }
+
+    if (typeof ltpList === 'string') {
+      ltpList = JSON.parse(ltpList);
+    }
+
+  } catch (e) {
+
+    return res.status(400).json({
+      status: "Failed",
+      error: "Invalid JSON",
+      details: e.message
+    });
+
+  }
+
+
+  let results = [];
+
+  for (const item of ltpList) {
+
+    // Find matching user
+    const user = userList.find(
+      u => u.clientcode === item.clientcode
+    );
+
+    if (!user) {
+
+      results.push({
+        client: item.clientcode,
+        tradingsymbol: item.tradingsymbol,
+        status: "Failed",
+        error: "User auth data not found"
+      });
+
+      continue;
+    }
+
+    try {
+
+       verifyProxy(user);
+
+      const proxyAgent = new HttpsProxyAgent(
+        `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
+      );
+
+      const config = {
+        method: "post",
+        url: "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getLtpData",
+        httpsAgent: proxyAgent,
+         timeout: 15000,
+        headers: {
+          Authorization: `Bearer ${user.jwtToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-UserType": "USER",
+          "X-SourceID": "WEB",
+          "X-ClientLocalIP": "192.168.1.1",
+          "X-ClientPublicIP": user.publicIP,
+          "X-MACAddress": "fe80::216e:6507:4b90:3719",
+          "X-PrivateKey": user.apiKey
+        },
+        data: {
+          exchange: item.exchange || "NSE",
+          tradingsymbol: item.tradingsymbol,
+          symboltoken: item.symboltoken
+        }
+      };
+
+      const response = await axios(config);
+
+      results.push({
+        client: item.clientcode,
+        tradingsymbol: item.tradingsymbol,
+        symboltoken: item.symboltoken,
+        status: "Success",
+        data: response.data
+      });
+
+      // Optional delay
+      // await new Promise(r => setTimeout(r, 300));
+
+    } catch (error) {
+
+      results.push({
+        client: item.clientcode,
+        tradingsymbol: item.tradingsymbol,
+        symboltoken: item.symboltoken,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
+
+    }
+
+  }
+
+  return res.status(200).json({
+    status: "Completed",
+    count: results.length,
+    results
+  });
+
+}
+
+
+
 async function verifyProxy(user) {
   try {
     // 1. Setup the Proxy Agent
@@ -599,10 +726,6 @@ async function verifyProxy(user) {
   } catch (error) {
     console.error("❌ PROXY ERROR: Could not connect through proxy.");
     console.error(error.message);
-    
-    // Common errors: 
-    // 407 = Proxy Authentication Required (Wrong username/password)
-    // ECONNREFUSED = Proxy server is down or Port is wrong
   }
 }
 
@@ -637,5 +760,6 @@ export {
   getOrderBook,
   getOrderModify,
   getOrderPlace,
-  getOrderCancel
+  getOrderCancel,
+  getLTP
 };

@@ -12,7 +12,8 @@ import   {
   getOrderBook,
   getOrderModify,
   getOrderPlace,
-  getOrderCancel
+  getOrderCancel,
+  getLTP
 }from "../controller/product_controller.js";;
 
 const router = express.Router();
@@ -27,6 +28,9 @@ router.route("/getOrderBook").post(getOrderBook);
 router.route("/getOrderModify").post(getOrderModify);
 router.route("/getOrderPlace").post(getOrderPlace);
 router.route("/getOrderCancel").post(getOrderCancel);
+router.route("/getLTP").post(getLTP);
+
+
 
 
 
