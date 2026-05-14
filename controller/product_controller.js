@@ -622,22 +622,7 @@ async function getLTP(req, res) {
   for (const item of ltpList) {
 
     const user = userList[0];
-    // // Find matching user
-    // const user = userList.find(
-    //   u => u.clientcode === item.clientcode
-    // );
-
-    // if (!user) {
-
-    //   results.push({
-    //     client: item.clientcode,
-    //     tradingsymbol: item.tradingsymbol,
-    //     status: "Failed",
-    //     error: "User auth data not found"
-    //   });
-
-    //   continue;
-    // }
+  
 
     try {
 
@@ -683,8 +668,6 @@ const ltpData = response.data?.data;
   ltp: ltpData.ltp
       });
 
-      // Optional delay
-      // await new Promise(r => setTimeout(r, 300));
 
     } catch (error) {
 
@@ -707,6 +690,75 @@ const ltpData = response.data?.data;
   });
 
 }
+
+
+async function getPositionData (req, res) {
+  let { userList } = req.body;
+
+  // 1. Parsing safety check
+  if (typeof userList === 'string') {
+    try {
+      userList = JSON.parse(userList);
+    } catch (e) {
+      return res.status(400).json({ error: "Invalid JSON format" });
+    }
+  }
+
+  if (!userList || !Array.isArray(userList)) {
+    return res.status(400).json({ error: "Please provide a userList array" });
+  }
+
+  let results = [];
+
+  for (const user of userList) {
+    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    try {
+      const config = {
+        method: 'get',
+        url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getPosition',
+        httpsAgent: proxyAgent,
+        headers: {
+          // Use the jwtToken passed from the frontend login result
+          'Authorization': `Bearer ${user.jwtToken}`, 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-UserType': 'USER',
+          'X-SourceID': 'WEB',
+          'X-ClientLocalIP': '192.168.1.1',
+          'X-ClientPublicIP': user.publicIP,
+          'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+          'X-PrivateKey': user.apiKey // Ensure you have this in your list
+        }
+      };
+
+      const response = await axios(config);
+      
+      results.push({
+       data: response.data.data.map(item => ({
+    ...item,
+    client: user.clientcode
+  }))
+      });
+
+      // 2. Rate Limit Protection
+      // Angel One allows ~1-3 req/sec for non-order APIs in 2026
+      await new Promise(r => setTimeout(r, 500)); 
+
+    } catch (error) {
+      results.push({
+        client: user.clientcode,
+        status: "Failed",
+        error: error.response?.data || error.message
+      });
+    }
+  }
+
+  res.status(200).json({
+    message: "RMS Batch fetch completed",
+    results: results
+  });
+};
+
 
 
 
@@ -765,5 +817,6 @@ export {
   getOrderModify,
   getOrderPlace,
   getOrderCancel,
-  getLTP
+  getLTP,
+  getPositionData
 };
