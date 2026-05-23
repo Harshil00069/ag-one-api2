@@ -315,11 +315,17 @@ async function getOrderBook (req, res) {
 
       const response = await axios(config);
       
-      results.push({
-        client: user.clientcode,
-        status: "Success",
-        data: response.data.data
+         results.push({
+       data: response.data.data.map(item => ({
+    ...item,
+    client: user.clientcode
+  }))
       });
+      // results.push({
+      //   client: user.clientcode,
+      //   status: "Success",
+      //   data: response.data.data
+      // });
 
       // 2. Rate Limit Protection
       // Angel One allows ~1-3 req/sec for non-order APIs in 2026
@@ -406,13 +412,19 @@ async function getOrderModify (req, res) {
       };
 
       const response = await axios(config);
-      
-      results.push({
-        client: order.clientcode,
-        orderid: order.orderid,
-        status: "Success",
-        data: response.data
+  
+          results.push({
+       data: response.data.data.map(item => ({
+    ...item,
+    client: user.clientcode
+  }))
       });
+      // results.push({
+      //   client: order.clientcode,
+      //   orderid: order.orderid,
+      //   status: "Success",
+      //   data: response.data
+      // });
 
       // 500ms delay to respect 2026 Rate Limits (10 OPS)
       await new Promise(r => setTimeout(r, 500));
