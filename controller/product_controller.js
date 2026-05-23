@@ -403,8 +403,8 @@ async function getOrderModify (req, res) {
           "ordertype": "LIMIT",
           "producttype": order.producttype,
           "duration": "DAY",
-          "price": order.newPrice.toString(),
-          "quantity": order.quantity.toString(),
+          "price": order.newPrice ? order.newPrice.toString() : (order.price ? order.price.toString() : "0"),
+          "quantity": order.quantity ? order.quantity.toString() : "0",
           "tradingsymbol": order.tradingsymbol,
           "symboltoken":order.symboltoken,
           "exchange":order.exchange
