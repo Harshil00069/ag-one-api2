@@ -489,10 +489,17 @@ async function getOrderPlace (req, res) {
 
       const response = await axios(config);
       
+      // results.push({
+      //   client: order.clientcode,
+      //   status: "Success",
+      //   data: response.data
+      // });
+
       results.push({
-        client: order.clientcode,
-        status: "Success",
-        data: response.data
+       data: response.data.data.map(item => ({
+    ...item,
+    client: user.clientcode
+  }))
       });
 
       // Respecting Rate Limits
