@@ -501,18 +501,18 @@ async function getOrderPlace (req, res) {
 
       const response = await axios(config);
       
-      // results.push({
-      //   client: order.clientcode,
-      //   status: "Success",
-      //   data: response.data
-      // });
-
       results.push({
-       data: response.data.data.map(item => ({
-    ...item,
-    client: user.clientcode
-  }))
+        client: order.clientcode,
+        status: "Success",
+        data: response.data
       });
+
+  //     results.push({
+  //      data: response.data.data.map(item => ({
+  //   ...item,
+  //   client: user.clientcode
+  // }))
+  //     });
 
       // Respecting Rate Limits
       await new Promise(r => setTimeout(r, 500));
