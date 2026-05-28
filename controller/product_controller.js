@@ -779,6 +779,54 @@ async function getPositionData (req, res) {
 };
 
 
+async function checkWebshareProxy() {
+  const ip = "64.137.19.56";
+  const port = "6562"; 
+  const user = "ugisekwy";     // Fixed the 'j' to 'i' typo here
+  const pass = "40p6x3x07b7d";
+
+  // 1. Safe credential string formatting
+  const safeUser = encodeURIComponent(user);
+  const safePass = encodeURIComponent(pass);
+
+  // 2. Build the proxy agent configuration explicitly
+  const proxyAgent = new HttpsProxyAgent({
+    host: ip,
+    port: parseInt(port),
+    auth: `${safeUser}:${safePass}`,
+    rejectUnauthorized: false // Bypasses intermediate SSL failures over proxy routes
+  });
+
+  try {
+    console.log("Routing connection through Webshare proxy tunnel...");
+    
+    const response = await axios({
+      method: 'get',
+      url: 'http://ipv4.webshare.io/', // Webshare text IP checker
+      httpsAgent: proxyAgent,
+      timeout: 6000 // Fails cleanly if the proxy server is unresponsive
+    });
+
+    console.log("-------------------------------------------------");
+    console.log("✅ SUCCESS! Proxy is working cleanly.");
+    console.log("Confirmed Exit IP:", response.data.trim());
+    console.log("-------------------------------------------------");
+
+  } catch (error) {
+    console.log("-------------------------------------------------");
+    console.error("❌ PROXY ERROR DETECTED");
+    console.error("Message:", error.message);
+    
+    if (error.response) {
+      console.error("HTTP Status Code:", error.response.status);
+      if (error.response.status === 407) {
+        console.log("\n💡 Webshare rejected your server IP. Go to your Webshare Dashboard -> 'IP Authorization' and add this machine's public IP.");
+      }
+    }
+    console.log("-------------------------------------------------");
+  }
+}
+
 
 
 async function verifyProxy(user) {
