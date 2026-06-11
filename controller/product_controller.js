@@ -23,7 +23,7 @@ async function SearchScriptApiCall(req, res) {
                 success: true,
                 message: "Data already available in memory",
                 storedCount: scripMasterList.length,
-                segments: ["NSE","BSE","NFO"]
+                segments: ["NSE","BSE","NFO","MCX"]
             });
         }
 
