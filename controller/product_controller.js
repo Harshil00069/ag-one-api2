@@ -36,7 +36,8 @@ async function SearchScriptApiCall(req, res) {
             (scrip) =>
                 scrip.exch_seg === "NSE" ||
                 scrip.exch_seg === "BSE" ||
-                scrip.exch_seg === "NFO" 
+                scrip.exch_seg === "NFO" ||
+                scrip.exch_seg === "MCX" 
         );
 
         // 3. Save in memory list
@@ -48,7 +49,7 @@ async function SearchScriptApiCall(req, res) {
             message: "Market data loaded and stored in memory",
             totalProcessed: allScrips.length,
             storedCount: filteredScrips.length,
-            segments: ["NSE","BSE","NFO"]
+            segments: ["NSE","BSE","NFO","MCX"]
         });
 
     } catch (error) {
