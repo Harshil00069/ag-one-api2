@@ -83,6 +83,8 @@ async function GetSegmentData(req, res) {
             segment = "BSE";
         }else if (type == 3) {
             segment = "NSE";
+        } else if (type == 4) {
+            segment = "MCX";
         } else {
             return res.status(400).json({
                 success: false,
