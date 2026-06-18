@@ -20,6 +20,16 @@ app.use(express.urlencoded({ extended: true }));
 // app.use('/uploads', express.static('uploads'));
 app.use("/", productRoute);
 
+app.get('/redirect', (req, res) => {
+  const url = req.query.url;
+
+  if (!url) {
+    return res.status(400).send('URL is required');
+  }
+
+  return res.redirect(url);
+});
+
 // 1. Connect to MongoDB (Replace with your Atlas URI if using Cloud)
 // mongoose.connect('mongodb://localhost:27017/Ag_One')
 //   .then(() => console.log('✅ Connected to MongoDB'))
