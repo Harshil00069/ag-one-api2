@@ -681,7 +681,7 @@ const requests = ltpList.map(async (item) => {
       high: ltpData.high,
       low: ltpData.low,
       close: ltpData.close,
-      ltp: Number(ltpData.ltp).toFixed(1),
+      ltp: ltpData.ltp,
     };
 
   } catch (error) {
