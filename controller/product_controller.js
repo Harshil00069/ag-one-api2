@@ -638,72 +638,129 @@ async function getLTP(req, res) {
 
   }
 
+  const user = userList[0];
 
-  let results = [];
+verifyProxy(user);
 
-  for (const item of ltpList) {
+const proxyAgent = new HttpsProxyAgent(
+  `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
+);
 
-    const user = userList[0];
+const requests = ltpList.map(async (item) => {
+  try {
+    const response = await axios({
+      method: "post",
+      url: "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getLtpData",
+      httpsAgent: proxyAgent,
+      timeout: 15000,
+      headers: {
+        Authorization: `Bearer ${user.jwtToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "192.168.1.1",
+        "X-ClientPublicIP": user.publicIP,
+        "X-MACAddress": "fe80::216e:6507:4b90:3719",
+        "X-PrivateKey": user.apiKey
+      },
+      data: {
+        exchange: item.exchange || "NSE",
+        tradingsymbol: item.tradingsymbol,
+        symboltoken: item.symboltoken
+      }
+    });
+
+    const ltpData = response.data?.data;
+
+    return {
+      exchange: ltpData.exchange,
+      tradingsymbol: ltpData.tradingsymbol,
+      symboltoken: ltpData.symboltoken,
+      open: ltpData.open,
+      high: ltpData.high,
+      low: ltpData.low,
+      close: ltpData.close,
+      ltp: parseFloat(Number(ltpData.ltp).toFixed(1)),
+    };
+
+  } catch (error) {
+    return {
+      tradingsymbol: item.tradingsymbol,
+      symboltoken: item.symboltoken,
+      status: "Failed",
+      error: error.response?.data || error.message
+    };
+  }
+});
+
+const results = await Promise.all(requests);
+
+//   let results = [];
+
+//   for (const item of ltpList) {
+
+//     const user = userList[0];
   
 
-    try {
+//     try {
 
-       verifyProxy(user);
+//        verifyProxy(user);
 
-      const proxyAgent = new HttpsProxyAgent(
-        `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
-      );
+//       const proxyAgent = new HttpsProxyAgent(
+//         `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
+//       );
 
-      const config = {
-        method: "post",
-        url: "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getLtpData",
-        httpsAgent: proxyAgent,
-         timeout: 15000,
-        headers: {
-          Authorization: `Bearer ${user.jwtToken}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "X-UserType": "USER",
-          "X-SourceID": "WEB",
-          "X-ClientLocalIP": "192.168.1.1",
-          "X-ClientPublicIP": user.publicIP,
-          "X-MACAddress": "fe80::216e:6507:4b90:3719",
-          "X-PrivateKey": user.apiKey
-        },
-        data: {
-          exchange: item.exchange || "NSE",
-          tradingsymbol: item.tradingsymbol,
-          symboltoken: item.symboltoken
-        }
-      };
+//       const config = {
+//         method: "post",
+//         url: "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getLtpData",
+//         httpsAgent: proxyAgent,
+//          timeout: 15000,
+//         headers: {
+//           Authorization: `Bearer ${user.jwtToken}`,
+//           "Content-Type": "application/json",
+//           Accept: "application/json",
+//           "X-UserType": "USER",
+//           "X-SourceID": "WEB",
+//           "X-ClientLocalIP": "192.168.1.1",
+//           "X-ClientPublicIP": user.publicIP,
+//           "X-MACAddress": "fe80::216e:6507:4b90:3719",
+//           "X-PrivateKey": user.apiKey
+//         },
+//         data: {
+//           exchange: item.exchange || "NSE",
+//           tradingsymbol: item.tradingsymbol,
+//           symboltoken: item.symboltoken
+//         }
+//       };
 
-      const response = await axios(config);
-const ltpData = response.data?.data;
-      results.push({
-  exchange: ltpData.exchange,
-  tradingsymbol: ltpData.tradingsymbol,
-  symboltoken: ltpData.symboltoken,
-  open: ltpData.open,
-  high: ltpData.high,
-  low: ltpData.low,
-  close: ltpData.close,
-  ltp: ltpData.ltp
-      });
+//       const response = await axios(config);
+// const ltpData = response.data?.data;
+//       results.push({
+//   exchange: ltpData.exchange,
+//   tradingsymbol: ltpData.tradingsymbol,
+//   symboltoken: ltpData.symboltoken,
+//   open: ltpData.open,
+//   high: ltpData.high,
+//   low: ltpData.low,
+//   close: ltpData.close,
+//   ltp: ltpData.ltp
+//       });
 
 
-    } catch (error) {
+//     } catch (error) {
 
-      results.push({
-        client: item.clientcode,
-        tradingsymbol: item.tradingsymbol,
-        symboltoken: item.symboltoken,
-        status: "Failed",
-        error: error.response?.data || error.message
-      });
+//       results.push({
+//         client: item.clientcode,
+//         tradingsymbol: item.tradingsymbol,
+//         symboltoken: item.symboltoken,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
 
-    }
+//     }
 
-  }
+//   }
 
   return res.status(200).json({
     status: "Completed",
