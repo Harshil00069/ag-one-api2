@@ -23,7 +23,7 @@ async function SearchScriptApiCall(req, res) {
                 success: true,
                 message: "Data already available in memory",
                 storedCount: scripMasterList.length,
-                segments: ["NSE","BSE","NFO","MCX"]
+                segments: ["NSE","BSE","NFO","MCX","BFO"]
             });
         }
 
@@ -37,7 +37,8 @@ async function SearchScriptApiCall(req, res) {
                 scrip.exch_seg === "NSE" ||
                 scrip.exch_seg === "BSE" ||
                 scrip.exch_seg === "NFO" ||
-                scrip.exch_seg === "MCX" 
+                scrip.exch_seg === "MCX" ||
+                scrip.exch_seg === "BFO"
         );
 
         // 3. Save in memory list
@@ -49,7 +50,7 @@ async function SearchScriptApiCall(req, res) {
             message: "Market data loaded and stored in memory",
             totalProcessed: allScrips.length,
             storedCount: filteredScrips.length,
-            segments: ["NSE","BSE","NFO","MCX"]
+            segments: ["NSE","BSE","NFO","MCX","BFO"]
         });
 
     } catch (error) {
@@ -86,6 +87,8 @@ async function GetSegmentData(req, res) {
             segment = "NSE";
         } else if (type == 4) {
             segment = "MCX";
+        } else if (type == 5) {
+            segment = "BFO";
         } else {
             return res.status(400).json({
                 success: false,
