@@ -122,9 +122,97 @@ async function GetSegmentData(req, res) {
 //   { clientcode: "H54980091", password: "2724", totpSecret: "44YEC4CXXCKAVX3AK3MBK3WMAQ", publicIP: "142.111.67.146", apiKey: "2fGPJXFU" },
 // ];
 
-async function loginUser (req, res) {
 
-let { userList } = req.body;
+/// Old method
+// async function loginUser (req, res) {
+
+// let { userList } = req.body;
+
+//   // If data comes via urlencoded, it might be a string
+//   if (typeof userList === 'string') {
+//     try {
+//       userList = JSON.parse(userList);
+//     } catch (e) {
+//       return res.status(400).json({ error: "Invalid JSON format in userList string" });
+//     }
+//   }
+
+//   if (!userList || !Array.isArray(userList)) {
+//     return res.status(400).json({ error: "Please provide a userList array" });
+//   }
+
+//   let results = [];
+
+//   for (const user of userList) {
+
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+//     try {
+//       // Generate TOTP
+//       //  const generatedTotp = await generate({ secret: user.totpSecret });
+//       const generatedTotp = authenticator.generate(user.totpSecret);
+
+//        verifyProxy(user);
+
+//       const config = {
+//         method: 'post',
+//         url: 'https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey,
+//         },
+//         data: {
+//           "clientcode": user.clientcode,
+//           "password": user.password,
+//           "totp": generatedTotp,
+//           "state": "statevariable"
+//         }
+//       };
+
+//       const response = await axios(config);
+      
+//       // Safety Check: Check if data exists before accessing jwtToken
+//       if (response.data && response.data.data) {
+//           results.push({
+//             client: user.clientcode,
+//             status: "Success",
+//             jwt: response.data.data.jwtToken
+//           });
+//       } else {
+//           results.push({
+//             client: user.clientcode,
+//             status: "Failed",
+//             message: response.data.message || "Invalid response structure"
+//           });
+//       }
+
+//       await new Promise(r => setTimeout(r, 1000));
+
+//     } catch (error) {
+//       results.push({
+//         client: user.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({
+//     message: "Batch login completed",
+//     results: results
+//   });
+// };
+
+
+async function loginUser (req, res) {
+  let { userList } = req.body;
 
   // If data comes via urlencoded, it might be a string
   if (typeof userList === 'string') {
@@ -139,18 +227,15 @@ let { userList } = req.body;
     return res.status(400).json({ error: "Please provide a userList array" });
   }
 
-  let results = [];
-
-  for (const user of userList) {
-
+  // Map each user to a promise so they run concurrently
+  const promises = userList.map(async (user) => {
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
 
     try {
       // Generate TOTP
-      //  const generatedTotp = await generate({ secret: user.totpSecret });
       const generatedTotp = authenticator.generate(user.totpSecret);
 
-       verifyProxy(user);
+      verifyProxy(user);
 
       const config = {
         method: 'post',
@@ -171,43 +256,110 @@ let { userList } = req.body;
           "password": user.password,
           "totp": generatedTotp,
           "state": "statevariable"
-        }
+        },
+        timeout: 5000 // Optional: Add a timeout so one stuck proxy doesn't hang the whole request
       };
 
       const response = await axios(config);
       
-      // Safety Check: Check if data exists before accessing jwtToken
       if (response.data && response.data.data) {
-          results.push({
-            client: user.clientcode,
-            status: "Success",
-            jwt: response.data.data.jwtToken
-          });
+        return {
+          client: user.clientcode,
+          status: "Success",
+          jwt: response.data.data.jwtToken
+        };
       } else {
-          results.push({
-            client: user.clientcode,
-            status: "Failed",
-            message: response.data.message || "Invalid response structure"
-          });
+        return {
+          client: user.clientcode,
+          status: "Failed",
+          message: response.data.message || "Invalid response structure"
+        };
       }
 
-      await new Promise(r => setTimeout(r, 1000));
-
     } catch (error) {
-      results.push({
+      return {
         client: user.clientcode,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Execute all login requests at the exact same time
+  const results = await Promise.all(promises);
 
   res.status(200).json({
     message: "Batch login completed",
     results: results
   });
-};
+}
 
+/// Old method
+// async function getRMSBatch (req, res) {
+//   let { userList } = req.body;
+
+//   // 1. Parsing safety check
+//   if (typeof userList === 'string') {
+//     try {
+//       userList = JSON.parse(userList);
+//     } catch (e) {
+//       return res.status(400).json({ error: "Invalid JSON format" });
+//     }
+//   }
+
+//   if (!userList || !Array.isArray(userList)) {
+//     return res.status(400).json({ error: "Please provide a userList array" });
+//   }
+
+//   let results = [];
+
+//   for (const user of userList) {
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+//     try {
+//       const config = {
+//         method: 'get',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/user/v1/getRMS',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           // Use the jwtToken passed from the frontend login result
+//           'Authorization': `Bearer ${user.jwtToken}`, 
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey // Ensure you have this in your list
+//         }
+//       };
+
+//       const response = await axios(config);
+      
+//       results.push({
+//         client: user.clientcode,
+//         status: "Success",
+//         data: response.data.data
+//       });
+
+//       // 2. Rate Limit Protection
+//       // Angel One allows ~1-3 req/sec for non-order APIs in 2026
+//       await new Promise(r => setTimeout(r, 500)); 
+
+//     } catch (error) {
+//       results.push({
+//         client: user.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({
+//     message: "RMS Batch fetch completed",
+//     results: results
+//   });
+// };
 
 
 async function getRMSBatch (req, res) {
@@ -226,17 +378,16 @@ async function getRMSBatch (req, res) {
     return res.status(400).json({ error: "Please provide a userList array" });
   }
 
-  let results = [];
-
-  for (const user of userList) {
+  // Fire all independent client requests concurrently
+  const promises = userList.map(async (user) => {
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    
     try {
       const config = {
         method: 'get',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/user/v1/getRMS',
         httpsAgent: proxyAgent,
         headers: {
-          // Use the jwtToken passed from the frontend login result
           'Authorization': `Bearer ${user.jwtToken}`, 
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -245,39 +396,110 @@ async function getRMSBatch (req, res) {
           'X-ClientLocalIP': '192.168.1.1',
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
-          'X-PrivateKey': user.apiKey // Ensure you have this in your list
-        }
+          'X-PrivateKey': user.apiKey 
+        },
+        timeout: 4000 // Prevents a single dead proxy from freezing the batch execution
       };
 
       const response = await axios(config);
       
-      results.push({
+      return {
         client: user.clientcode,
         status: "Success",
         data: response.data.data
-      });
-
-      // 2. Rate Limit Protection
-      // Angel One allows ~1-3 req/sec for non-order APIs in 2026
-      await new Promise(r => setTimeout(r, 500)); 
+      };
 
     } catch (error) {
-      results.push({
+      return {
         client: user.clientcode,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Resolve all independent requests at the same time
+  const results = await Promise.all(promises);
 
   res.status(200).json({
     message: "RMS Batch fetch completed",
     results: results
   });
-};
+}
 
 
+/// Old method
+// async function getOrderBook (req, res) {
+//   let { userList } = req.body;
 
+//   // 1. Parsing safety check
+//   if (typeof userList === 'string') {
+//     try {
+//       userList = JSON.parse(userList);
+//     } catch (e) {
+//       return res.status(400).json({ error: "Invalid JSON format" });
+//     }
+//   }
+
+//   if (!userList || !Array.isArray(userList)) {
+//     return res.status(400).json({ error: "Please provide a userList array" });
+//   }
+
+//   let results = [];
+
+//   for (const user of userList) {
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+//     try {
+//       const config = {
+//         method: 'get',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getOrderBook',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           // Use the jwtToken passed from the frontend login result
+//           'Authorization': `Bearer ${user.jwtToken}`, 
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey // Ensure you have this in your list
+//         }
+//       };
+
+//       const response = await axios(config);
+      
+//          results.push({
+//        data: response.data.data.map(item => ({
+//     ...item,
+//     client: user.clientcode
+//   }))
+//       });
+//       // results.push({
+//       //   client: user.clientcode,
+//       //   status: "Success",
+//       //   data: response.data.data
+//       // });
+
+//       // 2. Rate Limit Protection
+//       // Angel One allows ~1-3 req/sec for non-order APIs in 2026
+//       await new Promise(r => setTimeout(r, 500)); 
+
+//     } catch (error) {
+//       results.push({
+//         client: user.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({
+//     message: "RMS Batch fetch completed",
+//     results: results
+//   });
+// };
 
 
 async function getOrderBook (req, res) {
@@ -296,17 +518,16 @@ async function getOrderBook (req, res) {
     return res.status(400).json({ error: "Please provide a userList array" });
   }
 
-  let results = [];
-
-  for (const user of userList) {
+  // Map each user to a concurrent promise
+  const promises = userList.map(async (user) => {
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    
     try {
       const config = {
         method: 'get',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getOrderBook',
         httpsAgent: proxyAgent,
         headers: {
-          // Use the jwtToken passed from the frontend login result
           'Authorization': `Bearer ${user.jwtToken}`, 
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -315,46 +536,136 @@ async function getOrderBook (req, res) {
           'X-ClientLocalIP': '192.168.1.1',
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
-          'X-PrivateKey': user.apiKey // Ensure you have this in your list
-        }
+          'X-PrivateKey': user.apiKey 
+        },
+        timeout: 4000 // Prevents faulty proxies from holding up the response
       };
 
       const response = await axios(config);
       
-         results.push({
-       data: response.data.data.map(item => ({
-    ...item,
-    client: user.clientcode
-  }))
-      });
-      // results.push({
-      //   client: user.clientcode,
-      //   status: "Success",
-      //   data: response.data.data
-      // });
-
-      // 2. Rate Limit Protection
-      // Angel One allows ~1-3 req/sec for non-order APIs in 2026
-      await new Promise(r => setTimeout(r, 500)); 
+      // Match your formatting logic where every order item injects the client code
+      const orderData = (response.data && response.data.data) ? response.data.data : [];
+      
+      return {
+        status: "Success",
+        data: orderData.map(item => ({
+          ...item,
+          client: user.clientcode
+        }))
+      };
 
     } catch (error) {
-      results.push({
+      return {
         client: user.clientcode,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Fire all network requests at the exact same time
+  const results = await Promise.all(promises);
 
   res.status(200).json({
-    message: "RMS Batch fetch completed",
+    message: "Order book batch fetch completed",
     results: results
   });
-};
+}
 
 
+/// Old Method
 
+// async function getOrderModify (req, res) {
+//   // Destructure both lists from the request body
+//   let { userList, modifyOrderList } = req.body;
 
+//   if (!userList || !modifyOrderList) {
+//     return res.status(400).json({ error: "Missing userList or modifyOrderList" });
+//   }
+
+//   // If the data comes as a string (from urlencoded), parse it
+//   if (typeof userList === 'string') {
+//     userList = JSON.parse(userList);
+//   }
+//   if (typeof modifyOrderList === 'string') {
+//     modifyOrderList = JSON.parse(modifyOrderList);
+//   }
+
+//   let results = [];
+
+//   // Loop through the modifications you want to make
+//   for (const order of modifyOrderList) {
+//     // Find the matching user in userList to get their JWT and API Key
+//     const user = userList.find(u => u.clientcode === order.clientcode);
+
+//     if (!user) {
+//       results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
+//       continue;
+//     }
+
+//     // const proxyAgent = new HttpsProxyAgent('http://yeawfwfk:ucicqubip6gn@142.111.67.146:5611');
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+  
+
+//     try {
+//       const config = {
+//         method: 'post',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/modifyOrder',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           'Authorization': `Bearer ${user.jwtToken}`,
+//           'Content-Type': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey
+//         },
+//         data: JSON.stringify({
+//           "variety": order.variety || "NORMAL",
+//           "orderid": order.orderid,
+//           "ordertype": "LIMIT",
+//           "producttype": order.producttype,
+//           "duration": "DAY",
+//           "price": order.newPrice ? order.newPrice.toString() : (order.price ? order.price.toString() : "0"),
+//           "quantity": order.quantity ? order.quantity.toString() : "0",
+//           "tradingsymbol": order.tradingsymbol,
+//           "symboltoken":order.symboltoken,
+//           "exchange":order.exchange
+//         })
+//       };
+
+//       const response = await axios(config);
+  
+//           results.push({
+//        data: response.data.data.map(item => ({
+//     ...item,
+//     client: user.clientcode
+//   }))
+//       });
+//       // results.push({
+//       //   client: order.clientcode,
+//       //   orderid: order.orderid,
+//       //   status: "Success",
+//       //   data: response.data
+//       // });
+
+//       // 500ms delay to respect 2026 Rate Limits (10 OPS)
+//       await new Promise(r => setTimeout(r, 500));
+
+//     } catch (error) {
+//       results.push({
+//         client: order.clientcode,
+//         orderid: order.orderid,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({ results });
+// };
 
 async function getOrderModify (req, res) {
   // Destructure both lists from the request body
@@ -366,27 +677,22 @@ async function getOrderModify (req, res) {
 
   // If the data comes as a string (from urlencoded), parse it
   if (typeof userList === 'string') {
-    userList = JSON.parse(userList);
+    try { userList = JSON.parse(userList); } catch(e) { return res.status(400).json({ error: "Invalid userList JSON" }); }
   }
   if (typeof modifyOrderList === 'string') {
-    modifyOrderList = JSON.parse(modifyOrderList);
+    try { modifyOrderList = JSON.parse(modifyOrderList); } catch(e) { return res.status(400).json({ error: "Invalid modifyOrderList JSON" }); }
   }
 
-  let results = [];
-
-  // Loop through the modifications you want to make
-  for (const order of modifyOrderList) {
+  // Map each order modification request to a concurrent promise
+  const promises = modifyOrderList.map(async (order) => {
     // Find the matching user in userList to get their JWT and API Key
     const user = userList.find(u => u.clientcode === order.clientcode);
 
     if (!user) {
-      results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
-      continue;
+      return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
-    // const proxyAgent = new HttpsProxyAgent('http://yeawfwfk:ucicqubip6gn@142.111.67.146:5611');
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
-  
 
     try {
       const config = {
@@ -403,7 +709,8 @@ async function getOrderModify (req, res) {
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
           'X-PrivateKey': user.apiKey
         },
-        data: JSON.stringify({
+        // Axios serializes objects to JSON automatically
+        data: {
           "variety": order.variety || "NORMAL",
           "orderid": order.orderid,
           "ordertype": "LIMIT",
@@ -412,41 +719,131 @@ async function getOrderModify (req, res) {
           "price": order.newPrice ? order.newPrice.toString() : (order.price ? order.price.toString() : "0"),
           "quantity": order.quantity ? order.quantity.toString() : "0",
           "tradingsymbol": order.tradingsymbol,
-          "symboltoken":order.symboltoken,
-          "exchange":order.exchange
-        })
+          "symboltoken": order.symboltoken,
+          "exchange": order.exchange
+        },
+        timeout: 4000 // Cut off slow proxy connections quickly
       };
 
       const response = await axios(config);
   
-          results.push({
-       data: response.data.data.map(item => ({
-    ...item,
-    client: user.clientcode
-  }))
-      });
-      // results.push({
-      //   client: order.clientcode,
-      //   orderid: order.orderid,
-      //   status: "Success",
-      //   data: response.data
-      // });
+      const responseData = response.data?.data;
 
-      // 500ms delay to respect 2026 Rate Limits (10 OPS)
-      await new Promise(r => setTimeout(r, 500));
+      // Handle both formats safely (if response data is an array or a single object)
+      if (Array.isArray(responseData)) {
+        return {
+          status: "Success",
+          data: responseData.map(item => ({ ...item, client: user.clientcode }))
+        };
+      } else {
+        return {
+          status: "Success",
+          data: responseData ? [{ ...responseData, client: user.clientcode }] : [{ orderid: order.orderid, client: user.clientcode }]
+        };
+      }
 
     } catch (error) {
-      results.push({
+      return {
         client: order.clientcode,
         orderid: order.orderid,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Fire all modification requests over their respective proxies at the exact same time
+  const results = await Promise.all(promises);
 
   res.status(200).json({ results });
-};
+}
+
+
+// async function getOrderPlace (req, res) {
+//   let { userList, placeOrderList } = req.body;
+
+//   if (!userList || !placeOrderList) {
+//     return res.status(400).json({ error: "Missing userList or placeOrderList" });
+//   }
+
+//   // Parsing check for urlencoded data
+//   if (typeof userList === 'string') userList = JSON.parse(userList);
+//   if (typeof placeOrderList === 'string') placeOrderList = JSON.parse(placeOrderList);
+
+//   let results = [];
+
+//   for (const order of placeOrderList) {
+//     const user = userList.find(u => u.clientcode === order.clientcode);
+
+//     if (!user) {
+//       results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
+//       continue;
+//     }
+
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+//     try {
+//       const config = {
+//         method: 'post',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/placeOrder',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           'Authorization': `Bearer ${user.jwtToken}`,
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1', // Should ideally be dynamic
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey
+//         },
+//         data: JSON.stringify({
+//           "variety": order.variety || "NORMAL",
+//           "tradingsymbol": order.tradingsymbol,
+//           "symboltoken": order.symboltoken,
+//           "transactiontype": order.transactiontype, // BUY or SELL
+//           "exchange": order.exchange,
+//           "ordertype": order.ordertype || "LIMIT",
+//           "producttype": order.producttype || "DELIVERY",
+//           "duration": "DAY",
+//           "price": order.price.toString(),
+//           "quantity": order.quantity.toString(),
+//           "squareoff": "0",
+//           "stoploss": "0",
+//           "scripconsent":"yes"
+//         })
+//       };
+
+//       const response = await axios(config);
+      
+//       results.push({
+//         client: order.clientcode,
+//         status: "Success",
+//         data: response.data
+//       });
+
+//   //     results.push({
+//   //      data: response.data.data.map(item => ({
+//   //   ...item,
+//   //   client: user.clientcode
+//   // }))
+//   //     });
+
+//       // Respecting Rate Limits
+//       await new Promise(r => setTimeout(r, 2000));
+
+//     } catch (error) {
+//       results.push({
+//         client: order.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({ results });
+// };
 
 
 async function getOrderPlace (req, res) {
@@ -456,18 +853,20 @@ async function getOrderPlace (req, res) {
     return res.status(400).json({ error: "Missing userList or placeOrderList" });
   }
 
-  // Parsing check for urlencoded data
-  if (typeof userList === 'string') userList = JSON.parse(userList);
-  if (typeof placeOrderList === 'string') placeOrderList = JSON.parse(placeOrderList);
+  // Parsing check for urlencoded data safely wrapped in try-catch
+  if (typeof userList === 'string') {
+    try { userList = JSON.parse(userList); } catch(e) { return res.status(400).json({ error: "Invalid userList JSON" }); }
+  }
+  if (typeof placeOrderList === 'string') {
+    try { placeOrderList = JSON.parse(placeOrderList); } catch(e) { return res.status(400).json({ error: "Invalid placeOrderList JSON" }); }
+  }
 
-  let results = [];
-
-  for (const order of placeOrderList) {
+  // Map each order placement request into a concurrent execution promise
+  const promises = placeOrderList.map(async (order) => {
     const user = userList.find(u => u.clientcode === order.clientcode);
 
     if (!user) {
-      results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
-      continue;
+      return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
@@ -483,16 +882,17 @@ async function getOrderPlace (req, res) {
           'Accept': 'application/json',
           'X-UserType': 'USER',
           'X-SourceID': 'WEB',
-          'X-ClientLocalIP': '192.168.1.1', // Should ideally be dynamic
+          'X-ClientLocalIP': '192.168.1.1', 
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
           'X-PrivateKey': user.apiKey
         },
-        data: JSON.stringify({
+        // Pass payload directly as a JS object; Axios stringifies this automatically
+        data: {
           "variety": order.variety || "NORMAL",
           "tradingsymbol": order.tradingsymbol,
           "symboltoken": order.symboltoken,
-          "transactiontype": order.transactiontype, // BUY or SELL
+          "transactiontype": order.transactiontype, 
           "exchange": order.exchange,
           "ordertype": order.ordertype || "LIMIT",
           "producttype": order.producttype || "DELIVERY",
@@ -501,39 +901,108 @@ async function getOrderPlace (req, res) {
           "quantity": order.quantity.toString(),
           "squareoff": "0",
           "stoploss": "0",
-          "scripconsent":"yes"
-        })
+          "scripconsent": "yes"
+        },
+        timeout: 4000 // Fast fail-safe context if a proxy gets stuck
       };
 
       const response = await axios(config);
       
-      results.push({
+      // Keep your successful return response format cleanly mapped
+      return {
         client: order.clientcode,
         status: "Success",
         data: response.data
-      });
-
-  //     results.push({
-  //      data: response.data.data.map(item => ({
-  //   ...item,
-  //   client: user.clientcode
-  // }))
-  //     });
-
-      // Respecting Rate Limits
-      await new Promise(r => setTimeout(r, 2000));
+      };
 
     } catch (error) {
-      results.push({
+      return {
         client: order.clientcode,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Execute all orders instantly across all unique proxy pipelines
+  const results = await Promise.all(promises);
 
   res.status(200).json({ results });
-};
+}
+
+
+
+// async function getOrderCancel (req, res) {
+//   let { userList, cancelOrderList } = req.body;
+
+//   if (!userList || !cancelOrderList) {
+//     return res.status(400).json({ error: "Missing userList or cancelOrderList" });
+//   }
+
+//   // Handle string parsing for urlencoded requests
+//   if (typeof userList === 'string') userList = JSON.parse(userList);
+//   if (typeof cancelOrderList === 'string') cancelOrderList = JSON.parse(cancelOrderList);
+
+//   let results = [];
+
+//   for (const order of cancelOrderList) {
+//     // Match order to the correct user credentials
+//     const user = userList.find(u => u.clientcode === order.clientcode);
+
+//     if (!user) {
+//       results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
+//       continue;
+//     }
+
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+//     try {
+//       const config = {
+//         method: 'post',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/cancelOrder',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           'Authorization': `Bearer ${user.jwtToken}`,
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey
+//         },
+//         data: JSON.stringify({
+//           "variety": order.variety || "NORMAL",
+//           "orderid": order.orderid
+//         })
+//       };
+
+//       const response = await axios(config);
+      
+//       results.push({
+//         client: order.clientcode,
+//         orderid: order.orderid,
+//         status: "Success",
+//         data: response.data
+//       });
+
+//       // Throttle to respect 2026 Rate Limits
+//       await new Promise(r => setTimeout(r, 500));
+
+//     } catch (error) {
+//       results.push({
+//         client: order.clientcode,
+//         orderid: order.orderid,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({ results });
+// };
+
 
 
 async function getOrderCancel (req, res) {
@@ -543,19 +1012,21 @@ async function getOrderCancel (req, res) {
     return res.status(400).json({ error: "Missing userList or cancelOrderList" });
   }
 
-  // Handle string parsing for urlencoded requests
-  if (typeof userList === 'string') userList = JSON.parse(userList);
-  if (typeof cancelOrderList === 'string') cancelOrderList = JSON.parse(cancelOrderList);
+  // Handle string parsing for urlencoded requests safely with try-catch
+  if (typeof userList === 'string') {
+    try { userList = JSON.parse(userList); } catch(e) { return res.status(400).json({ error: "Invalid userList JSON" }); }
+  }
+  if (typeof cancelOrderList === 'string') {
+    try { cancelOrderList = JSON.parse(cancelOrderList); } catch(e) { return res.status(400).json({ error: "Invalid cancelOrderList JSON" }); }
+  }
 
-  let results = [];
-
-  for (const order of cancelOrderList) {
+  // Map each cancellation task to an independent execution promise
+  const promises = cancelOrderList.map(async (order) => {
     // Match order to the correct user credentials
     const user = userList.find(u => u.clientcode === order.clientcode);
 
     if (!user) {
-      results.push({ client: order.clientcode, status: "Failed", error: "User auth data not found" });
-      continue;
+      return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
@@ -576,37 +1047,38 @@ async function getOrderCancel (req, res) {
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
           'X-PrivateKey': user.apiKey
         },
-        data: JSON.stringify({
+        // Hand off plain object; Axios handles stringification implicitly
+        data: {
           "variety": order.variety || "NORMAL",
           "orderid": order.orderid
-        })
+        },
+        timeout: 4000 // Fails quickly if a proxy drops out or hangs
       };
 
       const response = await axios(config);
       
-      results.push({
+      return {
         client: order.clientcode,
         orderid: order.orderid,
         status: "Success",
         data: response.data
-      });
-
-      // Throttle to respect 2026 Rate Limits
-      await new Promise(r => setTimeout(r, 500));
+      };
 
     } catch (error) {
-      results.push({
+      return {
         client: order.clientcode,
         orderid: order.orderid,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Execute all cancellation operations simultaneously
+  const results = await Promise.all(promises);
 
   res.status(200).json({ results });
-};
-
+}
 
 
 async function getLTP(req, res) {
@@ -699,72 +1171,6 @@ const requests = ltpList.map(async (item) => {
 
 const results = await Promise.all(requests);
 
-//   let results = [];
-
-//   for (const item of ltpList) {
-
-//     const user = userList[0];
-  
-
-//     try {
-
-//        verifyProxy(user);
-
-//       const proxyAgent = new HttpsProxyAgent(
-//         `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
-//       );
-
-//       const config = {
-//         method: "post",
-//         url: "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getLtpData",
-//         httpsAgent: proxyAgent,
-//          timeout: 15000,
-//         headers: {
-//           Authorization: `Bearer ${user.jwtToken}`,
-//           "Content-Type": "application/json",
-//           Accept: "application/json",
-//           "X-UserType": "USER",
-//           "X-SourceID": "WEB",
-//           "X-ClientLocalIP": "192.168.1.1",
-//           "X-ClientPublicIP": user.publicIP,
-//           "X-MACAddress": "fe80::216e:6507:4b90:3719",
-//           "X-PrivateKey": user.apiKey
-//         },
-//         data: {
-//           exchange: item.exchange || "NSE",
-//           tradingsymbol: item.tradingsymbol,
-//           symboltoken: item.symboltoken
-//         }
-//       };
-
-//       const response = await axios(config);
-// const ltpData = response.data?.data;
-//       results.push({
-//   exchange: ltpData.exchange,
-//   tradingsymbol: ltpData.tradingsymbol,
-//   symboltoken: ltpData.symboltoken,
-//   open: ltpData.open,
-//   high: ltpData.high,
-//   low: ltpData.low,
-//   close: ltpData.close,
-//   ltp: ltpData.ltp
-//       });
-
-
-//     } catch (error) {
-
-//       results.push({
-//         client: item.clientcode,
-//         tradingsymbol: item.tradingsymbol,
-//         symboltoken: item.symboltoken,
-//         status: "Failed",
-//         error: error.response?.data || error.message
-//       });
-
-//     }
-
-//   }
-
   return res.status(200).json({
     status: "Completed",
     count: results.length,
@@ -773,6 +1179,73 @@ const results = await Promise.all(requests);
 
 }
 
+
+// async function getPositionData (req, res) {
+//   let { userList } = req.body;
+
+//   // 1. Parsing safety check
+//   if (typeof userList === 'string') {
+//     try {
+//       userList = JSON.parse(userList);
+//     } catch (e) {
+//       return res.status(400).json({ error: "Invalid JSON format" });
+//     }
+//   }
+
+//   if (!userList || !Array.isArray(userList)) {
+//     return res.status(400).json({ error: "Please provide a userList array" });
+//   }
+
+//   let results = [];
+
+//   for (const user of userList) {
+//     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+//     try {
+//       const config = {
+//         method: 'get',
+//         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getPosition',
+//         httpsAgent: proxyAgent,
+//         headers: {
+//           // Use the jwtToken passed from the frontend login result
+//           'Authorization': `Bearer ${user.jwtToken}`, 
+//           'Content-Type': 'application/json',
+//           'Accept': 'application/json',
+//           'X-UserType': 'USER',
+//           'X-SourceID': 'WEB',
+//           'X-ClientLocalIP': '192.168.1.1',
+//           'X-ClientPublicIP': user.publicIP,
+//           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+//           'X-PrivateKey': user.apiKey // Ensure you have this in your list
+//         }
+//       };
+
+//       const response = await axios(config);
+      
+//       results.push({
+//        data: response.data.data.map(item => ({
+//     ...item,
+//     client: user.clientcode
+//   }))
+//       });
+
+//       // 2. Rate Limit Protection
+//       // Angel One allows ~1-3 req/sec for non-order APIs in 2026
+//       await new Promise(r => setTimeout(r, 500)); 
+
+//     } catch (error) {
+//       results.push({
+//         client: user.clientcode,
+//         status: "Failed",
+//         error: error.response?.data || error.message
+//       });
+//     }
+//   }
+
+//   res.status(200).json({
+//     message: "RMS Batch fetch completed",
+//     results: results
+//   });
+// };
 
 async function getPositionData (req, res) {
   let { userList } = req.body;
@@ -790,17 +1263,16 @@ async function getPositionData (req, res) {
     return res.status(400).json({ error: "Please provide a userList array" });
   }
 
-  let results = [];
-
-  for (const user of userList) {
+  // Map each user request into a concurrent promise array
+  const promises = userList.map(async (user) => {
     const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    
     try {
       const config = {
         method: 'get',
         url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/getPosition',
         httpsAgent: proxyAgent,
         headers: {
-          // Use the jwtToken passed from the frontend login result
           'Authorization': `Bearer ${user.jwtToken}`, 
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -809,37 +1281,41 @@ async function getPositionData (req, res) {
           'X-ClientLocalIP': '192.168.1.1',
           'X-ClientPublicIP': user.publicIP,
           'X-MACAddress': 'fe80::216e:6507:4b90:3719',
-          'X-PrivateKey': user.apiKey // Ensure you have this in your list
-        }
+          'X-PrivateKey': user.apiKey 
+        },
+        timeout: 4000 // Cut off slow proxy connections quickly
       };
 
       const response = await axios(config);
       
-      results.push({
-       data: response.data.data.map(item => ({
-    ...item,
-    client: user.clientcode
-  }))
-      });
-
-      // 2. Rate Limit Protection
-      // Angel One allows ~1-3 req/sec for non-order APIs in 2026
-      await new Promise(r => setTimeout(r, 500)); 
+      // Safety check: Fallback to an empty array if an account has no positions
+      const positions = response.data?.data || [];
+      
+      return {
+        status: "Success",
+        data: positions.map(item => ({
+          ...item,
+          client: user.clientcode
+        }))
+      };
 
     } catch (error) {
-      results.push({
+      return {
         client: user.clientcode,
         status: "Failed",
         error: error.response?.data || error.message
-      });
+      };
     }
-  }
+  });
+
+  // Resolve all independent client requests concurrently
+  const results = await Promise.all(promises);
 
   res.status(200).json({
-    message: "RMS Batch fetch completed",
+    message: "Positions Batch fetch completed",
     results: results
   });
-};
+}
 
 
 async function checkWebshareProxy() {
