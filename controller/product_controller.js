@@ -266,7 +266,8 @@ async function loginUser (req, res) {
         return {
           client: user.clientcode,
           status: "Success",
-          jwt: response.data.data.jwtToken
+          jwt: response.data.data.jwtToken,
+          feedToken: response.data.data.feedToken
         };
       } else {
         return {
