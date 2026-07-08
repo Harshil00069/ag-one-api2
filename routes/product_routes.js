@@ -25,7 +25,7 @@ const router = express.Router();
 router.route("/Search_Script").get(SearchScriptApiCall);
 router.route("/GetSegmentData/:type").get(GetSegmentData);
 router.route("/SearchScriptStoreApiCall").get(SearchScriptStoreApiCall);
-router.route("/GetStoredSegmentData").get(GetStoredSegmentData);
+router.route("/GetStoredSegmentData/:type").get(GetStoredSegmentData);
 
 router.route("/loginUser").post(loginUser);
 router.route("/getRMS").post(getRMSBatch);
