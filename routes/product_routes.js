@@ -14,7 +14,8 @@ import   {
   getOrderPlace,
   getOrderCancel,
   getLTP,
-  getPositionData
+  getPositionData,
+  SearchScriptStoreApiCall
 }from "../controller/product_controller.js";;
 
 const router = express.Router();
@@ -22,6 +23,7 @@ const router = express.Router();
 
 router.route("/Search_Script").get(SearchScriptApiCall);
 router.route("/GetSegmentData/:type").get(GetSegmentData);
+router.route("/SearchScriptStoreApiCall").get(SearchScriptStoreApiCall);
 
 router.route("/loginUser").post(loginUser);
 router.route("/getRMS").post(getRMSBatch);
