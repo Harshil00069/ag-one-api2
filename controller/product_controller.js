@@ -1320,6 +1320,49 @@ async function getPositionData (req, res) {
 }
 
 
+// async function SearchScriptStoreApiCall(req, res) {
+//     try {
+
+//         const externalApiUrl =
+//             "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json";
+
+//         // Download master file
+//         const response = await axios.get(externalApiUrl, {
+//             httpsAgent: agent
+//         });
+
+//         const allScrips = response.data;
+
+//         // Filter only NFO (test first)
+//         const nfo = allScrips.filter(
+//             item => item.exch_seg === "NFO"
+//         );
+
+//         console.log("NFO Count :", nfo.length);
+
+//         // Upload to GitHub
+//         await uploadJson("nfo.json", nfo);
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "NFO uploaded successfully.",
+//             count: nfo.length
+//         });
+
+//     } catch (error) {
+
+//         console.log(error);
+
+//         return res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+
+//     }
+// }
+
+
+
 async function SearchScriptStoreApiCall(req, res) {
     try {
 
@@ -1333,25 +1376,92 @@ async function SearchScriptStoreApiCall(req, res) {
 
         const allScrips = response.data;
 
-        // Filter only NFO (test first)
-        const nfo = allScrips.filter(
-            item => item.exch_seg === "NFO"
-        );
+        // Store exchange-wise data
+        const exchangeData = {
+            NFO: [],
+            NSE: [],
+            BSE: [],
+            MCX: [],
+            BFO: []
+        };
 
-        console.log("NFO Count :", nfo.length);
+        // Split data into exchanges
+        for (const item of allScrips) {
+            if (exchangeData[item.exch_seg]) {
+                exchangeData[item.exch_seg].push(item);
+            }
+        }
 
-        // Upload to GitHub
-        await uploadJson("nfo.json", nfo);
+        // Upload JSON files to GitHub
+        await uploadJson("nfo.json", exchangeData.NFO);
+        await uploadJson("nse.json", exchangeData.NSE);
+        await uploadJson("bse.json", exchangeData.BSE);
+        await uploadJson("mcx.json", exchangeData.MCX);
+        await uploadJson("bfo.json", exchangeData.BFO);
 
         return res.status(200).json({
             success: true,
-            message: "NFO uploaded successfully.",
-            count: nfo.length
+            message: "All exchange data uploaded successfully.",
+            counts: {
+                nfo: exchangeData.NFO.length,
+                nse: exchangeData.NSE.length,
+                bse: exchangeData.BSE.length,
+                mcx: exchangeData.MCX.length,
+                bfo: exchangeData.BFO.length
+            }
         });
 
     } catch (error) {
 
-        console.log(error);
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+}
+
+async function GetStoredSegmentData(req, res) {
+    try {
+
+        const type = req.params.type;
+
+        let fileName = "";
+
+        if (type == 1) {
+            fileName = "nfo.json";
+        } else if (type == 2) {
+            fileName = "bse.json";
+        } else if (type == 3) {
+            fileName = "nse.json";
+        } else if (type == 4) {
+            fileName = "mcx.json";
+        } else if (type == 5) {
+            fileName = "bfo.json";
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid type"
+            });
+        }
+
+        const owner = process.env.GITHUB_OWNER;
+        const repo = process.env.GITHUB_REPO;
+        const branch = process.env.GITHUB_BRANCH;
+
+        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/data/${fileName}`;
+
+        const response = await axios.get(url);
+
+        return res.status(200).json({
+            success: true,
+            count: response.data.length,
+            data: response.data
+        });
+
+    } catch (error) {
 
         return res.status(500).json({
             success: false,
@@ -1468,5 +1578,6 @@ export {
   getOrderCancel,
   getLTP,
   getPositionData,
-  SearchScriptStoreApiCall
+  SearchScriptStoreApiCall,
+  GetStoredSegmentData
 };
