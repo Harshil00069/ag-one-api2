@@ -6,6 +6,7 @@ import  https  from 'https';
 import  { HttpsProxyAgent }  from 'https-proxy-agent';
 import { authenticator } from 'otplib';
 import { uploadJson } from "../utils/github.js";
+import { Octokit } from "@octokit/rest";
 let scripMasterList = [];
 
 
