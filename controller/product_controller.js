@@ -5,6 +5,7 @@ import  https  from 'https';
 // import  { generate }  from 'otplib';
 import  { HttpsProxyAgent }  from 'https-proxy-agent';
 import { authenticator } from 'otplib';
+import { uploadJson } from "../utils/github.js";
 let scripMasterList = [];
 
 
@@ -1319,6 +1320,47 @@ async function getPositionData (req, res) {
 }
 
 
+async function SearchScriptStoreApiCall(req, res) {
+    try {
+
+        const externalApiUrl =
+            "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json";
+
+        // Download master file
+        const response = await axios.get(externalApiUrl, {
+            httpsAgent: agent
+        });
+
+        const allScrips = response.data;
+
+        // Filter only NFO (test first)
+        const nfo = allScrips.filter(
+            item => item.exch_seg === "NFO"
+        );
+
+        console.log("NFO Count :", nfo.length);
+
+        // Upload to GitHub
+        await uploadJson("nfo.json", nfo);
+
+        return res.status(200).json({
+            success: true,
+            message: "NFO uploaded successfully.",
+            count: nfo.length
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+}
+
 async function checkWebshareProxy() {
   const ip = "64.137.19.56";
   const port = "6562"; 
@@ -1425,5 +1467,6 @@ export {
   getOrderPlace,
   getOrderCancel,
   getLTP,
-  getPositionData
+  getPositionData,
+  SearchScriptStoreApiCall
 };
