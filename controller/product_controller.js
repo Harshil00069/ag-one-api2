@@ -1430,38 +1430,61 @@ async function GetStoredSegmentData(req, res) {
 
         let fileName = "";
 
-        if (type == 1) {
-            fileName = "nfo.json";
-        } else if (type == 2) {
-            fileName = "bse.json";
-        } else if (type == 3) {
-            fileName = "nse.json";
-        } else if (type == 4) {
-            fileName = "mcx.json";
-        } else if (type == 5) {
-            fileName = "bfo.json";
-        } else {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid type"
-            });
+        switch (type) {
+            case "1":
+                fileName = "nfo.json";
+                break;
+            case "2":
+                fileName = "bse.json";
+                break;
+            case "3":
+                fileName = "nse.json";
+                break;
+            case "4":
+                fileName = "mcx.json";
+                break;
+            case "5":
+                fileName = "bfo.json";
+                break;
+            default:
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid type"
+                });
         }
+
+        const octokit = new Octokit({
+            auth: process.env.GITHUB_TOKEN
+        });
 
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const branch = process.env.GITHUB_BRANCH;
 
-        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/data/${fileName}`;
+        const response = await octokit.repos.getContent({
+            owner,
+            repo,
+            path: `data/${fileName}`,
+            ref: branch
+        });
 
-        const response = await axios.get(url);
+        const fileContent = Buffer.from(
+            response.data.content,
+            "base64"
+        ).toString("utf8");
+
+        const jsonData = JSON.parse(fileContent);
 
         return res.status(200).json({
             success: true,
-            count: response.data.length,
-            data: response.data
+            segment: fileName.replace(".json", "").toUpperCase(),
+            count: jsonData.length,
+            data: jsonData
         });
 
     } catch (error) {
+
+        console.error(error);
 
         return res.status(500).json({
             success: false,
