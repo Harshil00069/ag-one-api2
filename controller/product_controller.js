@@ -1429,69 +1429,38 @@ async function GetStoredSegmentData(req, res) {
 
         const type = req.params.type;
 
-        let fileName = "";
+        const files = {
+            "1": "nfo.json",
+            "2": "bse.json",
+            "3": "nse.json",
+            "4": "mcx.json",
+            "5": "bfo.json"
+        };
 
-        switch (type) {
-            case "1":
-                fileName = "nfo.json";
-                break;
-            case "2":
-                fileName = "bse.json";
-                break;
-            case "3":
-                fileName = "nse.json";
-                break;
-            case "4":
-                fileName = "mcx.json";
-                break;
-            case "5":
-                fileName = "bfo.json";
-                break;
-            default:
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid type"
-                });
+        const fileName = files[type];
+
+        if (!fileName) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid type"
+            });
         }
 
-        const octokit = new Octokit({
-            auth: process.env.GITHUB_TOKEN
-        });
+        const url = `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/${process.env.GITHUB_BRANCH}/data/${fileName}`;
 
-        const owner = process.env.GITHUB_OWNER;
-        const repo = process.env.GITHUB_REPO;
-        const branch = process.env.GITHUB_BRANCH;
-
-        const response = await octokit.repos.getContent({
-            owner,
-            repo,
-            path: `data/${fileName}`,
-            ref: branch
-        });
-
-        const fileContent = Buffer.from(
-            response.data.content,
-            "base64"
-        ).toString("utf8");
-
-        const jsonData = JSON.parse(fileContent);
+        const response = await axios.get(url);
 
         return res.status(200).json({
             success: true,
-            segment: fileName.replace(".json", "").toUpperCase(),
-            count: jsonData.length,
-            data: jsonData
+            count: response.data.length,
+            data: response.data
         });
 
     } catch (error) {
-
-        console.error(error);
-
         return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 }
 
