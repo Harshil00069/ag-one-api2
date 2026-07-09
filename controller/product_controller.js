@@ -1429,31 +1429,62 @@ async function GetStoredSegmentData(req, res) {
 
         const type = req.params.type;
 
-        const files = {
-            "1": "nfo.json",
-            "2": "bse.json",
-            "3": "nse.json",
-            "4": "mcx.json",
-            "5": "bfo.json"
-        };
+        let fileName = "";
+        let filterType = "";
 
-        const fileName = files[type];
+        switch (type) {
+            case "1":
+                fileName = "nfo.json";
+                break;
 
-        if (!fileName) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid type"
-            });
+            case "2":
+                fileName = "bse.json";
+                break;
+
+            case "3":
+                fileName = "nse.json";
+                break;
+
+            case "4":
+                fileName = "mcx.json";
+                break;
+
+            case "5":
+                fileName = "bfo.json";
+                break;
+
+            case "7":
+                fileName = "nfo.json";
+                filterType = "INDEX";
+                break;
+
+            default:
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid type"
+                });
         }
 
         const url = `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/${process.env.GITHUB_BRANCH}/data/${fileName}`;
 
         const response = await axios.get(url);
 
+        let data = response.data;
+
+        // Type 7 = Only NIFTY & BANKNIFTY
+        if (filterType === "INDEX") {
+            data = data.filter(item =>
+                item.name === "NIFTY" ||
+                item.name === "BANKNIFTY" ||
+                item.name === "FINNIFTY" ||
+               item.name === "MIDCPNIFTY"
+            );
+        }
+
         return res.status(200).json({
             success: true,
-            count: response.data.length,
-            data: response.data
+            count: data.length,
+            data: data
         });
 
     } catch (error) {
@@ -1463,6 +1494,46 @@ async function GetStoredSegmentData(req, res) {
         });
     }
 }
+
+// async function GetStoredSegmentData(req, res) {
+//     try {
+
+//         const type = req.params.type;
+
+//         const files = {
+//             "1": "nfo.json",
+//             "2": "bse.json",
+//             "3": "nse.json",
+//             "4": "mcx.json",
+//             "5": "bfo.json"
+//         };
+
+//         const fileName = files[type];
+
+//         if (!fileName) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Invalid type"
+//             });
+//         }
+
+//         const url = `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/${process.env.GITHUB_BRANCH}/data/${fileName}`;
+
+//         const response = await axios.get(url);
+
+//         return res.status(200).json({
+//             success: true,
+//             count: response.data.length,
+//             data: response.data
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// }
 
 async function checkWebshareProxy() {
   const ip = "64.137.19.56";
