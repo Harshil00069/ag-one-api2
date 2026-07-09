@@ -1454,7 +1454,6 @@ async function GetStoredSegmentData(req, res) {
                 break;
 
             case "7":
-                fileName = "nfo.json";
                 filterType = "INDEX";
                 break;
 
@@ -1465,75 +1464,60 @@ async function GetStoredSegmentData(req, res) {
                 });
         }
 
-        const url = `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/${process.env.GITHUB_BRANCH}/data/${fileName}`;
+        const owner = process.env.GITHUB_OWNER;
+        const repo = process.env.GITHUB_REPO;
+        const branch = process.env.GITHUB_BRANCH;
 
-        const response = await axios.get(url);
+        let data = [];
 
-        let data = response.data;
-
-        // Type 7 = Only NIFTY & BANKNIFTY
         if (filterType === "INDEX") {
+
+            const nfoUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/data/nfo.json`;
+            const bfoUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/data/bfo.json`;
+
+            const [nfoResponse, bfoResponse] = await Promise.all([
+                axios.get(nfoUrl),
+                axios.get(bfoUrl)
+            ]);
+
+            data = [...nfoResponse.data, ...bfoResponse.data];
+
+            const allowedIndexes = [
+                "NIFTY",
+                "BANKNIFTY",
+                "FINNIFTY",
+                "MIDCPNIFTY",
+                "SENSEX"
+            ];
+
             data = data.filter(item =>
-                item.name === "NIFTY" ||
-                item.name === "BANKNIFTY" ||
-                item.name === "FINNIFTY" ||
-               item.name === "MIDCPNIFTY"
+                allowedIndexes.includes(item.name)
             );
+
+        } else {
+
+            const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/data/${fileName}`;
+
+            const response = await axios.get(url);
+
+            data = response.data;
         }
 
         return res.status(200).json({
             success: true,
             count: data.length,
-            data: data
+            data
         });
 
     } catch (error) {
+
         return res.status(500).json({
             success: false,
             message: error.message
         });
+
     }
 }
-
-// async function GetStoredSegmentData(req, res) {
-//     try {
-
-//         const type = req.params.type;
-
-//         const files = {
-//             "1": "nfo.json",
-//             "2": "bse.json",
-//             "3": "nse.json",
-//             "4": "mcx.json",
-//             "5": "bfo.json"
-//         };
-
-//         const fileName = files[type];
-
-//         if (!fileName) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Invalid type"
-//             });
-//         }
-
-//         const url = `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/${process.env.GITHUB_BRANCH}/data/${fileName}`;
-
-//         const response = await axios.get(url);
-
-//         return res.status(200).json({
-//             success: true,
-//             count: response.data.length,
-//             data: response.data
-//         });
-
-//     } catch (error) {
-//         return res.status(500).json({
-//             success: false,
-//             message: error.message
-//         });
-//     }
-// }
 
 async function checkWebshareProxy() {
   const ip = "64.137.19.56";
