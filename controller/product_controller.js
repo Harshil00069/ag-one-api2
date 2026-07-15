@@ -231,13 +231,24 @@ async function loginUser (req, res) {
 
   // Map each user to a promise so they run concurrently
   const promises = userList.map(async (user) => {
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
 
+    const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
     try {
       // Generate TOTP
+      if (!user.totpSecret || !user.apiKey || !user.clientcode || !user.password) {
+  return { client: user.clientcode || "Unknown", status: "Failed", message: "Missing required user credentials" };
+}
       const generatedTotp = authenticator.generate(user.totpSecret);
 
-      verifyProxy(user);
+     await verifyProxy(user);
 
       const config = {
         method: 'post',
@@ -383,8 +394,15 @@ async function getRMSBatch (req, res) {
 
   // Fire all independent client requests concurrently
   const promises = userList.map(async (user) => {
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
-    
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+       const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+}); 
     try {
       const config = {
         method: 'get',
@@ -523,8 +541,16 @@ async function getOrderBook (req, res) {
 
   // Map each user to a concurrent promise
   const promises = userList.map(async (user) => {
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
-    
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+        const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
+
     try {
       const config = {
         method: 'get',
@@ -695,7 +721,16 @@ async function getOrderModify (req, res) {
       return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+         const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
 
     try {
       const config = {
@@ -872,7 +907,16 @@ async function getOrderPlace (req, res) {
       return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+ 
+        const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+}); 
 
     try {
       const config = {
@@ -1032,7 +1076,16 @@ async function getOrderCancel (req, res) {
       return { client: order.clientcode, status: "Failed", error: "User auth data not found" };
     }
 
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+
+        const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
 
     try {
       const config = {
@@ -1118,11 +1171,19 @@ async function getLTP(req, res) {
 
   const user = userList[0];
 
-verifyProxy(user);
+// await verifyProxy(user);
 
-const proxyAgent = new HttpsProxyAgent(
-  `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
-);
+const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
+// const proxyAgent = new HttpsProxyAgent(
+//   `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
+// );
 
 const requests = ltpList.map(async (item) => {
   try {
@@ -1268,8 +1329,17 @@ async function getPositionData (req, res) {
 
   // Map each user request into a concurrent promise array
   const promises = userList.map(async (user) => {
-    const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
-    
+    // const proxyAgent = new HttpsProxyAgent(`http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`);
+   
+        const proxyAgent = new HttpsProxyAgent({
+  keepAlive: true,
+  maxSockets: 50,
+  protocol: 'http:',
+  host: user.publicIP,
+  port: user.port,
+  auth: `${user.ipName}:${user.ipPwd}`
+});
+
     try {
       const config = {
         method: 'get',
