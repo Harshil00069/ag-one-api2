@@ -1522,7 +1522,7 @@ async function GetStoredSegmentData(req, res) {
 async function getAllHoldingData(req, res) {
   let { userList } = req.body;
 
-  // 1. Parsing safety check
+  // 1. Parse userList if it comes as a string
   if (typeof userList === 'string') {
     try {
       userList = JSON.parse(userList);
@@ -1533,13 +1533,14 @@ async function getAllHoldingData(req, res) {
     }
   }
 
+  // 2. Validate userList
   if (!userList || !Array.isArray(userList)) {
     return res.status(400).json({
       error: "Please provide a userList array"
     });
   }
 
-  // 2. Create concurrent requests for all users
+  // 3. Process all users concurrently
   const promises = userList.map(async (user) => {
 
     const proxyAgent = new HttpsProxyAgent(
@@ -1574,20 +1575,42 @@ async function getAllHoldingData(req, res) {
 
       const response = await axios(config);
 
-      // getAllHolding response
-      const holdings = response.data?.data || [];
+      // Debug response if required
+      console.log(
+        `Holding response for ${user.clientcode}:`,
+        JSON.stringify(response.data)
+      );
+
+      // 4. Get holdings from Angel One response
+      const holdings = response.data?.data?.holdings;
+
+      // 5. Make sure holdings is actually an array
+      if (!Array.isArray(holdings)) {
+        return {
+          client: user.clientcode,
+          status: "Failed",
+          error: response.data || "Invalid holdings response"
+        };
+      }
+
+      // 6. Add client code to every holding
+      const formattedHoldings = holdings.map(item => ({
+        ...item,
+        client: user.clientcode
+      }));
 
       return {
         client: user.clientcode,
         status: "Success",
-
-        data: holdings.map(item => ({
-          ...item,
-          client: user.clientcode
-        }))
+        data: formattedHoldings
       };
 
     } catch (error) {
+
+      console.error(
+        `Holding error for ${user.clientcode}:`,
+        error.message
+      );
 
       return {
         client: user.clientcode,
@@ -1597,10 +1620,10 @@ async function getAllHoldingData(req, res) {
     }
   });
 
-  // 3. Wait for all users
+  // 7. Wait for all clients
   const results = await Promise.all(promises);
 
-  // 4. Return batch response
+  // 8. Return response
   return res.status(200).json({
     message: "All Holding Batch fetch completed",
     results: results
