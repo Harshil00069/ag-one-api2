@@ -1519,6 +1519,94 @@ async function GetStoredSegmentData(req, res) {
     }
 }
 
+async function getAllHoldingData(req, res) {
+  let { userList } = req.body;
+
+  // 1. Parsing safety check
+  if (typeof userList === 'string') {
+    try {
+      userList = JSON.parse(userList);
+    } catch (e) {
+      return res.status(400).json({
+        error: "Invalid JSON format"
+      });
+    }
+  }
+
+  if (!userList || !Array.isArray(userList)) {
+    return res.status(400).json({
+      error: "Please provide a userList array"
+    });
+  }
+
+  // 2. Create concurrent requests for all users
+  const promises = userList.map(async (user) => {
+
+    const proxyAgent = new HttpsProxyAgent(
+      `http://${user.ipName}:${user.ipPwd}@${user.publicIP}:${user.port}`
+    );
+
+    try {
+      const config = {
+        method: 'get',
+
+        url: 'https://apiconnect.angelone.in/rest/secure/angelbroking/portfolio/v1/getAllHolding',
+
+        httpsAgent: proxyAgent,
+
+        headers: {
+          'Authorization': `Bearer ${user.jwtToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+
+          'X-UserType': 'USER',
+          'X-SourceID': 'WEB',
+
+          'X-ClientLocalIP': '192.168.1.1',
+          'X-ClientPublicIP': user.publicIP,
+          'X-MACAddress': 'fe80::216e:6507:4b90:3719',
+
+          'X-PrivateKey': user.apiKey
+        },
+
+        timeout: 4000
+      };
+
+      const response = await axios(config);
+
+      // getAllHolding response
+      const holdings = response.data?.data || [];
+
+      return {
+        client: user.clientcode,
+        status: "Success",
+
+        data: holdings.map(item => ({
+          ...item,
+          client: user.clientcode
+        }))
+      };
+
+    } catch (error) {
+
+      return {
+        client: user.clientcode,
+        status: "Failed",
+        error: error.response?.data || error.message
+      };
+    }
+  });
+
+  // 3. Wait for all users
+  const results = await Promise.all(promises);
+
+  // 4. Return batch response
+  return res.status(200).json({
+    message: "All Holding Batch fetch completed",
+    results: results
+  });
+}
+
 async function checkWebshareProxy() {
   const ip = "64.137.19.56";
   const port = "6562"; 
@@ -1627,5 +1715,6 @@ export {
   getLTP,
   getPositionData,
   SearchScriptStoreApiCall,
-  GetStoredSegmentData
+  GetStoredSegmentData,
+  getAllHoldingData
 };

@@ -16,7 +16,8 @@ import   {
   getLTP,
   getPositionData,
   SearchScriptStoreApiCall,
-  GetStoredSegmentData
+  GetStoredSegmentData,
+  getAllHoldingData
 }from "../controller/product_controller.js";;
 
 const router = express.Router();
@@ -35,6 +36,7 @@ router.route("/getOrderPlace").post(getOrderPlace);
 router.route("/getOrderCancel").post(getOrderCancel);
 router.route("/getLTP").post(getLTP);
 router.route("/getPositionData").post(getPositionData);
+router.route("/getAllHoldingData").post(getAllHoldingData);
 
 
 
